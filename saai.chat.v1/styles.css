@@ -656,6 +656,18 @@ body.saai-sidebar-open {
   overflow: hidden;
 }
 
+/* Ensure Gmail's native elements are not interfered with */
+body [role="button"][aria-label*="Google Account"],
+body [role="button"][aria-label*="Account"],
+body [data-tooltip*="Account"],
+body [data-tooltip*="Google"],
+body [aria-label*="Account settings"],
+body [aria-label*="Google Account"] {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
 .saai-flex-container {
   display: flex !important;
   width: 100% !important;
@@ -702,30 +714,6 @@ body .AD[role="dialog"] {
   #chat-input {
     font-size: 16px; /* Prevent zoom on iOS */
   }
-}
-
-/* Debug Indicator */
-#saai-debug-indicator.saai-debug-indicator {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: var(--saai-primary);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 500;
-  z-index: 10004;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
-  font-family: 'Inter', sans-serif;
-  animation: fadeInOut 2s ease-in-out infinite;
-}
-
-@keyframes fadeInOut {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 0.4; }
 }
 
 /* Task Modal */
