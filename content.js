@@ -149,7 +149,7 @@ async function sendMessage() {
         }
         
         // Send to n8n webhook
-        const response = await fetch('https://your-n8n-domain.com/webhook/chat', {
+        const response = await fetch('https://saaidev99.app.n8n.cloud/webhook-test/NB_Summarization_Phase1', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

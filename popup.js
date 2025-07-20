@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function sendTokenToN8N(token) {
         // Replace with your n8n webhook URL
-        const n8nWebhook = 'https://your-n8n-domain.com/webhook/google-auth';
+        const n8nWebhook = 'https://saaidev99.app.n8n.cloud/webhook-test/NB_Summarization_Phase1';
         
         fetch(n8nWebhook, {
             method: 'POST',
