@@ -214,7 +214,7 @@ async function createSidebar() {
   
   // Set content based on connection status
   if (isConnected) {
-    sidebarElement.innerHTML = createChatInterfaceHTML();
+    sidebarElement.innerHTML = createWelcomePageHTML();
   } else {
     sidebarElement.innerHTML = createConnectPromptHTML();
   }
@@ -283,22 +283,37 @@ function adjustGmailLayout(sidebarOpen) {
 function createChatInterfaceHTML() {
   return `
     <div class="saai-header">
-      <span class="saai-title">Hi boss 👋</span>
+      <span class="saai-title">Sa.AI Assistant</span>
       <div class="saai-header-actions">
-        <button id="task-list-btn" class="saai-task-btn">📋 Task List</button>
+        <button id="task-list-btn" class="saai-task-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9,11 12,14 22,4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          Tasks
+        </button>
         <button id="close-sidebar" class="saai-close-btn" title="Close">×</button>
       </div>
     </div>
     <div id="${CHAT_AREA_ID}" class="chat-area">
-      <div class="message bot-message">
-        <div class="message-content">
-          Hi boss, how may I help you?
+      <div class="chat-welcome">
+        <div class="chat-welcome-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
         </div>
+        <h3 class="chat-welcome-title">Hi! I'm your Gmail assistant</h3>
+        <p class="chat-welcome-subtitle">How can I help you today?</p>
       </div>
     </div>
     <div class="chat-input-container">
-      <input type="text" id="chat-input" placeholder="Type your message..." />
-      <button id="send-btn">Send</button>
+      <input type="text" id="chat-input" placeholder="Ask me anything about your emails..." />
+      <button id="send-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+        </svg>
+      </button>
     </div>
   `;
 }
@@ -306,17 +321,132 @@ function createChatInterfaceHTML() {
 function createConnectPromptHTML() {
   return `
     <div class="saai-header">
-      <span class="saai-title saai-connect-title">Connect Gmail</span>
-      <div class="saai-header-actions">
-        <button id="saai-debug-btn" class="saai-task-btn" style="background: rgba(255, 0, 0, 0.1); color: #ff0000;">SaAI Debug (Click)</button>
-        <button id="close-sidebar" class="saai-close-btn" title="Close">×</button>
-      </div>
+      <span class="saai-title">Sa.AI Assistant</span>
+      <button id="close-sidebar" class="saai-close-btn" title="Close">×</button>
     </div>
     <div class="saai-connect-content">
-      <div class="saai-connect-icon">📧</div>
-      <h2 class="saai-connect-heading">Connect Your Gmail</h2>
-      <p class="saai-connect-description">To use Sa.AI Gmail Assistant, you need to connect your Gmail account first.</p>
-      <button id="saai-connect-btn" class="saai-connect-button">Connect Gmail</button>
+      <div class="saai-connect-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.912 5.813a2 2 0 0 0 1.088 1.088L21 12l-5.813 1.912a2 2 0 0 0-1.088 1.088L12 21l-1.912-5.813a2 2 0 0 0-1.088-1.088L3 12l5.813-1.912a2 2 0 0 0 1.088-1.088L12 3z"/>
+        </svg>
+      </div>
+      
+      <h2 class="saai-connect-heading">Welcome to Sa.AI</h2>
+      
+      <p class="saai-connect-description">
+        Your intelligent Gmail assistant is ready to help you manage your inbox more efficiently.
+      </p>
+
+      <div class="saai-features">
+        <div class="saai-feature-card">
+          <div class="saai-feature-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <div class="saai-feature-content">
+            <h4 class="saai-feature-title">Inbox Summarization</h4>
+            <p class="saai-feature-description">Get instant summaries of your important emails</p>
+          </div>
+        </div>
+        
+        <div class="saai-feature-card">
+          <div class="saai-feature-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.088 1.088L21 12l-5.813 1.912a2 2 0 0 0-1.088 1.088L12 21l-1.912-5.813a2 2 0 0 0-1.088-1.088L3 12l5.813-1.912a2 2 0 0 0 1.088-1.088L12 3z"/>
+            </svg>
+          </div>
+          <div class="saai-feature-content">
+            <h4 class="saai-feature-title">Task Extraction</h4>
+            <p class="saai-feature-description">Automatically extract tasks and action items</p>
+          </div>
+        </div>
+        
+        <div class="saai-feature-card">
+          <div class="saai-feature-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+          <div class="saai-feature-content">
+            <h4 class="saai-feature-title">Smart Drafting</h4>
+            <p class="saai-feature-description">AI-powered email composition assistance</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="saai-connect-btn" class="saai-connect-button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Connect Gmail Account
+      </button>
+      
+      <p class="saai-disclaimer">
+        We'll need access to your Gmail to provide personalized assistance
+      </p>
+    </div>
+  `;
+}
+
+function createWelcomePageHTML() {
+  return `
+    <div class="saai-header">
+      <span class="saai-title">Sa.AI Assistant</span>
+      <button id="close-sidebar" class="saai-close-btn" title="Close">×</button>
+    </div>
+    <div class="saai-welcome-content">
+      <div class="saai-welcome-icon">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.912 5.813a2 2 0 0 0 1.088 1.088L21 12l-5.813 1.912a2 2 0 0 0-1.088 1.088L12 21l-1.912-5.813a2 2 0 0 0-1.088-1.088L3 12l5.813-1.912a2 2 0 0 0 1.088-1.088L12 3z"/>
+        </svg>
+      </div>
+      
+      <h2 class="saai-welcome-heading">Let's start!</h2>
+      
+      <p class="saai-welcome-description">
+        Your Gmail is now connected. I'm ready to help you manage your inbox more efficiently.
+      </p>
+
+      <div class="saai-welcome-features">
+        <div class="saai-welcome-feature">
+          <div class="saai-welcome-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <span>Get instant inbox summaries</span>
+        </div>
+        
+        <div class="saai-welcome-feature">
+          <div class="saai-welcome-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9,11 12,14 22,4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <span>Extract tasks automatically</span>
+        </div>
+        
+        <div class="saai-welcome-feature">
+          <div class="saai-welcome-feature-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </div>
+          <span>Smart email assistance</span>
+        </div>
+      </div>
+
+      <button id="saai-start-btn" class="saai-start-button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Start Chatting
+      </button>
     </div>
   `;
 }
@@ -332,35 +462,46 @@ function addSidebarEventListeners(sidebar, isConnected) {
   }
   
   if (isConnected) {
-    // Send button
-    const sendBtn = sidebar.querySelector('#send-btn');
-    if (sendBtn) {
-      sendBtn.addEventListener('click', handleSendMessage);
-    }
-    
-    // Chat input
-    const chatInput = sidebar.querySelector('#chat-input');
-    if (chatInput) {
-      chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          handleSendMessage();
-        }
+    // Check if this is the welcome page or chat interface
+    const startBtn = sidebar.querySelector('#saai-start-btn');
+    if (startBtn) {
+      // This is the welcome page - add start button listener
+      startBtn.addEventListener('click', () => {
+        console.log('[SaAI] Start button clicked');
+        showChatInterface();
       });
-      chatInput.focus();
+    } else {
+      // This is the chat interface - add chat listeners
+      // Send button
+      const sendBtn = sidebar.querySelector('#send-btn');
+      if (sendBtn) {
+        sendBtn.addEventListener('click', handleSendMessage);
+      }
+      
+      // Chat input
+      const chatInput = sidebar.querySelector('#chat-input');
+      if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            handleSendMessage();
+          }
+        });
+        chatInput.focus();
+      }
+      
+      // Task list button
+      const taskListBtn = sidebar.querySelector('#task-list-btn');
+      if (taskListBtn) {
+        taskListBtn.addEventListener('click', () => {
+          showTaskModal();
+        });
+      }
+      
+      // Inject suggestions
+      setTimeout(() => {
+        injectSuggestions();
+      }, 100);
     }
-    
-    // Task list button
-    const taskListBtn = sidebar.querySelector('#task-list-btn');
-    if (taskListBtn) {
-      taskListBtn.addEventListener('click', () => {
-        showTaskModal();
-      });
-    }
-    
-    // Inject suggestions
-    setTimeout(() => {
-      injectSuggestions();
-    }, 100);
   } else {
     // Connect button
     const connectBtn = sidebar.querySelector('#saai-connect-btn');
@@ -391,13 +532,20 @@ Check console for more details.`);
   }
 }
 
+async function showChatInterface() {
+  if (!sidebarElement) return;
+  
+  sidebarElement.innerHTML = createChatInterfaceHTML();
+  addSidebarEventListeners(sidebarElement, true);
+}
+
 async function updateSidebarContent() {
   if (!sidebarElement) return;
   
   const isConnected = await isGmailConnected();
   
   if (isConnected) {
-    sidebarElement.innerHTML = createChatInterfaceHTML();
+    sidebarElement.innerHTML = createWelcomePageHTML();
   } else {
     sidebarElement.innerHTML = createConnectPromptHTML();
   }
@@ -731,26 +879,28 @@ function openFullTable(emailData) {
         <title>Gmail Summary</title>
         <style>
           body { 
-            background: #181a2a; 
-            color: #fff; 
+            background: #ffffff; 
+            color: #0f172a; 
             font-family: Inter, Segoe UI, Arial, sans-serif; 
             padding: 32px; 
             margin: 0;
           }
           h2 { 
-            color: #7f9cf5; 
+            color: #0f172a; 
             text-align: center;
             margin-bottom: 32px;
+            font-size: 24px;
+            font-weight: 600;
           }
           .priority-section {
             margin-bottom: 32px;
-            background: rgba(255, 255, 255, 0.05);
+            background: #f8fafc;
             border-radius: 12px;
             padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #e2e8f0;
           }
           .priority-header {
-            color: #7f9cf5;
+            color: #0f172a;
             font-size: 18px;
             font-weight: 600;
             margin-bottom: 16px;
@@ -760,59 +910,67 @@ function openFullTable(emailData) {
           }
           .email-count {
             font-size: 14px;
-            opacity: 0.7;
+            color: #64748b;
             font-weight: 400;
           }
           table { 
             width: 100%; 
             border-collapse: collapse; 
             margin-bottom: 16px; 
-            background: rgba(255, 255, 255, 0.08);
+            background: #ffffff;
             border-radius: 8px;
             overflow: hidden;
+            border: 1px solid #e2e8f0;
+            table-layout: fixed;
           }
           th, td { 
             padding: 12px 16px; 
             text-align: left;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
           }
           th { 
-            background: #7f9cf5; 
-            color: #fff; 
+            background: #f1f5f9; 
+            color: #0f172a; 
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-size: 12px;
           }
+          th:first-child { width: 60%; }
+          th:last-child { width: 40%; }
           tr:nth-child(even) { 
-            background: rgba(255, 255, 255, 0.03); 
+            background: #ffffff; 
           }
           tr:nth-child(odd) { 
-            background: rgba(255, 255, 255, 0.06); 
+            background: #f8fafc; 
           }
           tr:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: #f1f5f9;
             transition: background 0.2s ease;
           }
           .subject-cell {
             font-weight: 500;
-            max-width: 400px;
+            max-width: 100%;
             word-wrap: break-word;
             line-height: 1.4;
+            color: #0f172a;
+            padding-right: 8px;
           }
           .sender-cell {
             font-size: 13px;
-            opacity: 0.9;
-            max-width: 200px;
+            color: #64748b;
+            max-width: 100%;
             word-wrap: break-word;
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            padding-left: 8px;
           }
           button { 
             padding: 12px 24px; 
             border-radius: 8px; 
             border: none; 
-            background: linear-gradient(90deg,#667eea,#764ba2); 
-            color: #fff; 
+            background: #0f172a; 
+            color: #ffffff; 
             font-weight: 600; 
             font-size: 14px; 
             cursor: pointer; 
@@ -820,14 +978,18 @@ function openFullTable(emailData) {
             transition: all 0.2s ease;
           }
           button:hover {
+            background: #1e293b;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
+          button:active {
+            transform: translateY(0);
           }
           @media(max-width: 600px) { 
             body { padding: 16px; } 
             table, th, td { font-size: 12px; padding: 8px 12px; }
-            .subject-cell { max-width: 200px; }
-            .sender-cell { max-width: 120px; }
+            th:first-child { width: 50%; }
+            th:last-child { width: 50%; }
           }
         </style>
       </head>
@@ -871,6 +1033,12 @@ function openFullTable(emailData) {
         <div style="text-align: center;">
           <button onclick="window.close()">Close</button>
         </div>
+        <script>
+          // Ensure close button works
+          document.querySelector('button').addEventListener('click', function() {
+            window.close();
+          });
+        </script>
       </body>
     </html>
   `);
@@ -964,11 +1132,42 @@ function injectSuggestions() {
   const chatArea = document.getElementById(CHAT_AREA_ID);
   if (!chatArea) return;
   
+  // Remove existing suggestions if any
+  const existingSuggestions = chatArea.querySelector('#saai-suggestions');
+  if (existingSuggestions) {
+    existingSuggestions.remove();
+  }
+  
   const suggestions = [
-    'Summarize my inbox',
-    'Find important emails',
-    'Show my tasks',
-    'Help me compose an email'
+    {
+      text: 'Summarize my inbox',
+      icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>`
+    },
+    {
+      text: 'Extract all tasks',
+      icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9,11 12,14 22,4"/>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+      </svg>`
+    },
+    {
+      text: 'Show follow-ups needed',
+      icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>`
+    },
+    {
+      text: 'Help me draft a reply',
+      icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        <path d="M13 8H7"/>
+        <path d="M17 12H7"/>
+      </svg>`
+    }
   ];
   
   const suggestionsDiv = document.createElement('div');
@@ -978,12 +1177,15 @@ function injectSuggestions() {
   suggestions.forEach(suggestion => {
     const button = document.createElement('button');
     button.className = 'saai-suggestion';
-    button.textContent = suggestion;
+    button.innerHTML = `
+      <span class="saai-suggestion-icon">${suggestion.icon}</span>
+      <span class="saai-suggestion-text">${suggestion.text}</span>
+    `;
     button.addEventListener('click', () => {
       const input = document.getElementById('chat-input');
       if (input) {
-        input.value = suggestion;
-        handleSendMessage();
+        input.value = suggestion.text;
+        input.focus();
       }
     });
     suggestionsDiv.appendChild(button);
@@ -1004,19 +1206,43 @@ function showTaskModal() {
   modal.innerHTML = `
     <div class="task-modal-content">
       <div class="task-modal-header">
-        <h3 class="task-modal-title">Task List</h3>
+        <h3 class="task-modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9,11 12,14 22,4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          Task Management
+        </h3>
         <button class="task-modal-close-btn">×</button>
       </div>
       <div class="task-modal-body">
         <div class="task-list">
-          ${tasks.length === 0 ? '<div class="no-tasks">No tasks yet</div>' : ''}
+          ${tasks.length === 0 ? `
+            <div class="no-tasks">
+              <div class="no-tasks-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9,11 12,14 22,4"/>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+              </div>
+              <div class="no-tasks-text">No tasks yet</div>
+              <p style="color: var(--saai-text-secondary); font-size: 12px; margin-top: 8px;">
+                Add your first task to get started
+              </p>
+            </div>
+          ` : ''}
           ${tasks.map(task => `
             <div class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
               <div class="task-content">
                 <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
                 <span class="task-text">${task.text}</span>
                 <span class="task-priority ${task.priority}">${task.priority}</span>
-                <button class="task-delete-btn">×</button>
+                <button class="task-delete-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
               </div>
             </div>
           `).join('')}
@@ -1028,9 +1254,14 @@ function showTaskModal() {
             <option value="medium" selected>Medium</option>
             <option value="high">High</option>
           </select>
-          <button class="add-task-btn">Add</button>
+          <button class="add-task-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
         </div>
-        <button class="task-modal-ok-btn">OK</button>
+        <button class="task-modal-ok-btn">Done</button>
       </div>
     </div>
   `;
