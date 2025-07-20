@@ -45,10 +45,7 @@ async function handleN8NRequest(data) {
     let url;
     switch (endpoint) {
         case 'chat':
-            url = 'https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot';
-            break;
-        case 'summarize':
-            url = 'https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot';
+            url = 'https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot';
             break;
         default:
             throw new Error('Invalid endpoint');
@@ -73,45 +70,45 @@ async function handleN8NRequest(data) {
             // Handle specific error cases
             if (response.status === 404) {
                 console.error('[Background] n8n webhook not found (404)');
-                        // Return a fallback response instead of throwing error
-        return await handleFallbackResponse(endpoint, payload);
-    } else if (response.status === 500) {
-        throw new Error('n8n server error (500) - please check webhook configuration');
-    } else if (response.status === 403) {
-        throw new Error('n8n webhook access denied (403) - check authentication');
-    } else {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`n8n webhook error (${response.status}): ${errorText}`);
+                // Return a fallback response instead of throwing error
+                return await handleFallbackResponse(endpoint, payload);
+            } else if (response.status === 500) {
+                throw new Error('n8n server error (500) - please check webhook configuration');
+            } else if (response.status === 403) {
+                throw new Error('n8n webhook access denied (403) - check authentication');
+            } else {
+                const errorText = await response.text().catch(() => 'Unknown error');
+                throw new Error(`n8n webhook error (${response.status}): ${errorText}`);
+            }
+        }
+        
+        // Try to parse JSON response
+        const responseText = await response.text();
+        console.log('[Background] n8n raw response:', responseText);
+        
+        let result;
+        try {
+            result = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+            console.warn('[Background] Failed to parse JSON response:', parseError);
+            // If response is not JSON, treat it as text
+            result = { message: responseText || 'Response received but not in expected format' };
+        }
+        
+        console.log('[Background] n8n parsed response:', result);
+        return result;
+        
+    } catch (error) {
+        console.error('[Background] Network error:', error);
+        
+        // If it's a network error (not a 404), try fallback
+        if (error.name === 'TypeError' || error.message.includes('fetch')) {
+            console.log('[Background] Network error detected, using fallback response');
+            return await handleFallbackResponse(endpoint, payload);
+        }
+        
+        throw error;
     }
-}
-
-// Try to parse JSON response
-const responseText = await response.text();
-console.log('[Background] n8n raw response:', responseText);
-
-let result;
-try {
-    result = responseText ? JSON.parse(responseText) : {};
-} catch (parseError) {
-    console.warn('[Background] Failed to parse JSON response:', parseError);
-    // If response is not JSON, treat it as text
-    result = { message: responseText || 'Response received but not in expected format' };
-}
-
-console.log('[Background] n8n parsed response:', result);
-return result;
-
-} catch (error) {
-    console.error('[Background] Network error:', error);
-    
-    // If it's a network error (not a 404), try fallback
-    if (error.name === 'TypeError' || error.message.includes('fetch')) {
-        console.log('[Background] Network error detected, using fallback response');
-        return await handleFallbackResponse(endpoint, payload);
-    }
-    
-    throw error;
-}
 }
 
 // Handle fallback responses when n8n is unavailable
@@ -132,7 +129,7 @@ async function handleFallbackResponse(endpoint, payload) {
         
         // Find the best matching response
         const lowerMessage = userMessage.toLowerCase();
-        let response = 'I understand you\'re asking about "' + userMessage + '". The n8n webhook is currently unavailable. Please check your webhook configuration at: https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot';
+        let response = 'I understand you\'re asking about "' + userMessage + '". The n8n webhook is currently unavailable. Please check your webhook configuration at: https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot';
         
         for (const [key, value] of Object.entries(mockResponses)) {
             if (lowerMessage.includes(key)) {
@@ -159,8 +156,7 @@ async function handleFallbackResponse(endpoint, payload) {
 // Handle OAuth flow
 async function handleOAuthFlow() {
     const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
-    // Use Chrome extension redirect URI format
-    const redirectUri = 'https://cmmjlngjamdemediohghdbinocakjkfj.chromiumapp.org';
+    const redirectUri = 'https://dxbdev999.app.n8n.cloud/webhook-test/oauth/callback';
     const scopes = 'email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +

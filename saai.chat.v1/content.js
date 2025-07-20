@@ -459,8 +459,52 @@ async function handleSendMessage() {
     }
     
     if (response?.success) {
-      const aiResponse = response.data?.message || 'I received your message but couldn\'t process it properly.';
-      appendMessage('bot', aiResponse, chatArea);
+      console.log('[SaAI] Response received:', response.data);
+      
+      // Check if this is a fallback response
+      if (response.data?.fallback) {
+        console.log('[SaAI] Using fallback response - n8n webhook unavailable');
+        
+        // Create a special message for fallback responses
+        const fallbackDiv = document.createElement('div');
+        fallbackDiv.className = 'message bot-message';
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        messageContent.innerHTML = `
+          <div style="margin-bottom: 8px;">${response.data.message}</div>
+          <div style="font-size: 12px; opacity: 0.8; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px;">
+            <strong>Webhook Status:</strong> ${response.data.webhookStatus}<br>
+            <strong>Suggestion:</strong> ${response.data.suggestion || 'Check n8n configuration'}
+          </div>
+        `;
+        
+        fallbackDiv.appendChild(messageContent);
+        chatArea.appendChild(fallbackDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        return;
+      }
+      
+      // Handle normal response
+      if (response.data && (response.data.high_priority_emails || response.data.medium_priority || response.data.already_replied_closed_threads || response.data.missed_or_ignored_emails)) {
+        // Email summary data
+        appendTableMessage('bot', response.data, chatArea);
+      } else if (response.data && response.data.reply) {
+        // Try to parse JSON reply
+        try {
+          const parsedReply = JSON.parse(response.data.reply);
+          appendTableMessage('bot', parsedReply, chatArea);
+        } catch (parseError) {
+          // Raw text reply
+          appendMessage('bot', response.data.reply, chatArea);
+        }
+      } else if (response.data && response.data.message) {
+        // Direct message response
+        appendMessage('bot', response.data.message, chatArea);
+      } else {
+        // Fallback
+        appendMessage('bot', 'I received your message!', chatArea);
+      }
     } else {
       throw new Error(response?.error || 'Failed to get response from AI');
     }
@@ -491,6 +535,346 @@ function appendMessage(sender, text, chatArea, temporary = false) {
   chatArea.scrollTop = chatArea.scrollHeight;
   
   return temporary ? messageDiv : null;
+}
+
+function appendTableMessage(sender, emailData, chatArea) {
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `message ${sender}-message`;
+  
+  const tableContainer = document.createElement('div');
+  tableContainer.className = 'email-summary-table';
+  
+  const title = document.createElement('h3');
+  title.textContent = '📧 Gmail Summary';
+  tableContainer.appendChild(title);
+  
+  // Helper function to clean and format email addresses
+  function formatEmailAddress(emailString) {
+    if (!emailString) return 'Unknown Sender';
+    
+    // Remove angle brackets and extract email
+    let cleanEmail = emailString.replace(/[<>]/g, '').trim();
+    
+    // If it's a very long string (like the one in the image), try to extract a readable part
+    if (cleanEmail.length > 50) {
+      // Try to find an @ symbol and extract domain
+      const atIndex = cleanEmail.indexOf('@');
+      if (atIndex > 0) {
+        const domain = cleanEmail.substring(atIndex + 1);
+        // Extract a readable domain name
+        const domainParts = domain.split('.');
+        if (domainParts.length >= 2) {
+          return `${domainParts[0]}.${domainParts[1]}`;
+        }
+        return domain;
+      }
+      
+      // If no @ symbol, try to extract a readable part
+      const readablePart = cleanEmail.substring(0, 20);
+      return readablePart + '...';
+    }
+    
+    // For normal email addresses, just clean them up
+    return cleanEmail;
+  }
+  
+  // Helper function to truncate long subjects
+  function truncateSubject(subject, maxLength = 50) {
+    if (!subject) return 'No Subject';
+    if (subject.length <= maxLength) return subject;
+    return subject.substring(0, maxLength) + '...';
+  }
+  
+  const priorities = [
+    { key: 'high_priority_emails', label: '🔴 High Priority', color: '#ffebee', icon: '🔴' },
+    { key: 'medium_priority', label: '🟡 Medium Priority', color: '#fff3e0', icon: '🟡' },
+    { key: 'already_replied_closed_threads', label: '✅ Already Replied', color: '#e8f5e8', icon: '✅' },
+    { key: 'missed_or_ignored_emails', label: '⏰ Missed/Ignored', color: '#f5f5f5', icon: '⏰' }
+  ];
+  
+  let totalRows = 0;
+  priorities.forEach(priority => {
+    const emails = emailData[priority.key];
+    if (emails && emails.length > 0) totalRows += emails.length;
+  });
+  
+  // Show preview if large
+  const PREVIEW_ROWS = 3;
+  let previewMode = totalRows > 6;
+  
+  priorities.forEach(priority => {
+    const emails = emailData[priority.key];
+    if (emails && emails.length > 0) {
+      const section = document.createElement('div');
+      section.className = 'priority-section';
+      
+      const header = document.createElement('h4');
+      header.innerHTML = `${priority.icon} ${priority.label} <span class="email-count">(${emails.length})</span>`;
+      section.appendChild(header);
+      
+      const table = document.createElement('table');
+      table.className = 'email-table';
+      
+      const thead = document.createElement('thead');
+      thead.innerHTML = `
+        <tr>
+          <th>Subject</th>
+          <th>From</th>
+        </tr>
+      `;
+      table.appendChild(thead);
+      
+      const tbody = document.createElement('tbody');
+      const emailsToShow = previewMode ? emails.slice(0, PREVIEW_ROWS) : emails;
+      
+      emailsToShow.forEach((email, idx) => {
+        const row = document.createElement('tr');
+        row.className = idx % 2 === 0 ? 'even-row' : 'odd-row';
+        
+        const subjectCell = document.createElement('td');
+        subjectCell.className = 'subject-cell';
+        subjectCell.textContent = truncateSubject(email.subject);
+        subjectCell.title = email.subject; // Show full subject on hover
+        
+        const senderCell = document.createElement('td');
+        senderCell.className = 'sender-cell';
+        senderCell.textContent = formatEmailAddress(email.sender);
+        senderCell.title = email.sender; // Show full email on hover
+        
+        row.appendChild(subjectCell);
+        row.appendChild(senderCell);
+        tbody.appendChild(row);
+      });
+      
+      table.appendChild(tbody);
+      section.appendChild(table);
+      
+      // Add "show more" indicator if in preview mode
+      if (previewMode && emails.length > PREVIEW_ROWS) {
+        const moreIndicator = document.createElement('div');
+        moreIndicator.className = 'more-indicator';
+        moreIndicator.textContent = `+${emails.length - PREVIEW_ROWS} more emails`;
+        section.appendChild(moreIndicator);
+      }
+      
+      tableContainer.appendChild(section);
+    }
+  });
+  
+  if (previewMode) {
+    const viewFullBtn = document.createElement('button');
+    viewFullBtn.textContent = '📋 View Full Summary';
+    viewFullBtn.className = 'view-full-btn';
+    viewFullBtn.onclick = () => openFullTable(emailData);
+    tableContainer.appendChild(viewFullBtn);
+  }
+  
+  // If no emails found
+  if (!priorities.some(p => emailData[p.key] && emailData[p.key].length > 0)) {
+    const noEmailsMsg = document.createElement('div');
+    noEmailsMsg.className = 'no-emails';
+    noEmailsMsg.innerHTML = `
+      <div class="no-emails-icon">📭</div>
+      <div class="no-emails-text">No emails found in your inbox.</div>
+    `;
+    tableContainer.appendChild(noEmailsMsg);
+  }
+  
+  messageDiv.appendChild(tableContainer);
+  chatArea.appendChild(messageDiv);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function openFullTable(emailData) {
+  const tableWindow = window.open('', '_blank');
+  
+  // Helper function to clean and format email addresses (same as in appendTableMessage)
+  function formatEmailAddress(emailString) {
+    if (!emailString) return 'Unknown Sender';
+    
+    // Remove angle brackets and extract email
+    let cleanEmail = emailString.replace(/[<>]/g, '').trim();
+    
+    // If it's a very long string, try to extract a readable part
+    if (cleanEmail.length > 50) {
+      // Try to find an @ symbol and extract domain
+      const atIndex = cleanEmail.indexOf('@');
+      if (atIndex > 0) {
+        const domain = cleanEmail.substring(atIndex + 1);
+        // Extract a readable domain name
+        const domainParts = domain.split('.');
+        if (domainParts.length >= 2) {
+          return `${domainParts[0]}.${domainParts[1]}`;
+        }
+        return domain;
+      }
+      
+      // If no @ symbol, try to extract a readable part
+      const readablePart = cleanEmail.substring(0, 20);
+      return readablePart + '...';
+    }
+    
+    // For normal email addresses, just clean them up
+    return cleanEmail;
+  }
+  
+  // Helper function to truncate long subjects
+  function truncateSubject(subject, maxLength = 80) {
+    if (!subject) return 'No Subject';
+    if (subject.length <= maxLength) return subject;
+    return subject.substring(0, maxLength) + '...';
+  }
+  
+  tableWindow.document.write(`
+    <html>
+      <head>
+        <title>Gmail Summary</title>
+        <style>
+          body { 
+            background: #181a2a; 
+            color: #fff; 
+            font-family: Inter, Segoe UI, Arial, sans-serif; 
+            padding: 32px; 
+            margin: 0;
+          }
+          h2 { 
+            color: #7f9cf5; 
+            text-align: center;
+            margin-bottom: 32px;
+          }
+          .priority-section {
+            margin-bottom: 32px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          .priority-header {
+            color: #7f9cf5;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .email-count {
+            font-size: 14px;
+            opacity: 0.7;
+            font-weight: 400;
+          }
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 16px; 
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          th, td { 
+            padding: 12px 16px; 
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          th { 
+            background: #7f9cf5; 
+            color: #fff; 
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 12px;
+          }
+          tr:nth-child(even) { 
+            background: rgba(255, 255, 255, 0.03); 
+          }
+          tr:nth-child(odd) { 
+            background: rgba(255, 255, 255, 0.06); 
+          }
+          tr:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transition: background 0.2s ease;
+          }
+          .subject-cell {
+            font-weight: 500;
+            max-width: 400px;
+            word-wrap: break-word;
+            line-height: 1.4;
+          }
+          .sender-cell {
+            font-size: 13px;
+            opacity: 0.9;
+            max-width: 200px;
+            word-wrap: break-word;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          }
+          button { 
+            padding: 12px 24px; 
+            border-radius: 8px; 
+            border: none; 
+            background: linear-gradient(90deg,#667eea,#764ba2); 
+            color: #fff; 
+            font-weight: 600; 
+            font-size: 14px; 
+            cursor: pointer; 
+            margin-top: 24px;
+            transition: all 0.2s ease;
+          }
+          button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+          }
+          @media(max-width: 600px) { 
+            body { padding: 16px; } 
+            table, th, td { font-size: 12px; padding: 8px 12px; }
+            .subject-cell { max-width: 200px; }
+            .sender-cell { max-width: 120px; }
+          }
+        </style>
+      </head>
+      <body>
+        <h2>📧 Gmail Summary (Full Table)</h2>
+        ${[
+          { key: 'high_priority_emails', label: '🔴 High Priority', icon: '🔴' },
+          { key: 'medium_priority', label: '🟡 Medium Priority', icon: '🟡' },
+          { key: 'already_replied_closed_threads', label: '✅ Already Replied', icon: '✅' },
+          { key: 'missed_or_ignored_emails', label: '⏰ Missed/Ignored', icon: '⏰' }
+        ].map(priority => {
+          const emails = emailData[priority.key];
+          if (emails && emails.length > 0) {
+            return `
+              <div class="priority-section">
+                <div class="priority-header">
+                  ${priority.icon} ${priority.label} 
+                  <span class="email-count">(${emails.length} emails)</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>From</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${emails.map(email => `
+                      <tr>
+                        <td class="subject-cell" title="${email.subject}">${truncateSubject(email.subject)}</td>
+                        <td class="sender-cell" title="${email.sender}">${formatEmailAddress(email.sender)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }
+          return '';
+        }).join('')}
+        <div style="text-align: center;">
+          <button onclick="window.close()">Close</button>
+        </div>
+      </body>
+    </html>
+  `);
+  tableWindow.document.close();
 }
 
 // === OAuth & Connection ===

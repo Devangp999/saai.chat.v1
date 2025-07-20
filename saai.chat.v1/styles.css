@@ -697,61 +697,66 @@
   font-weight: 500;
 }
 
-/* Email Summary Table */
+/* Email Summary Table Styles */
 .email-summary-table {
   background: white;
   border-radius: 12px;
-  padding: 20px;
-  margin: 16px 0;
+  padding: 16px;
+  margin: 8px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-family: 'Inter', sans-serif;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .email-summary-table h3 {
-  margin: 0 0 16px 0;
+  color: var(--saai-text-primary);
   font-size: 16px;
   font-weight: 600;
-  color: var(--saai-text-primary);
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .priority-section {
   margin-bottom: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(248, 250, 252, 0.8);
   border-radius: 8px;
-  overflow: hidden;
+  padding: 12px;
 }
 
 .priority-section h4 {
-  margin: 0;
-  padding: 12px 16px;
-  background: rgba(248, 250, 252, 0.8);
+  color: var(--saai-text-primary);
   font-size: 14px;
   font-weight: 600;
-  color: var(--saai-text-primary);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .email-count {
-  padding: 8px 16px;
   font-size: 12px;
   color: var(--saai-text-secondary);
-  background: rgba(248, 250, 252, 0.5);
+  font-weight: 400;
 }
 
 .email-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
-  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .email-table th {
-  background: rgba(248, 250, 252, 0.8);
+  background: rgba(123, 97, 255, 0.1);
+  color: var(--saai-primary-color);
+  font-weight: 600;
   padding: 8px 12px;
   text-align: left;
-  font-weight: 500;
-  color: var(--saai-text-primary);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .email-table td {
@@ -765,7 +770,7 @@
 }
 
 .email-table .even-row {
-  background: rgba(248, 250, 252, 0.3);
+  background: rgba(248, 250, 252, 0.5);
 }
 
 .email-table .odd-row {
@@ -780,69 +785,62 @@
 .subject-cell {
   font-weight: 500;
   color: var(--saai-text-primary);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 150px;
+  word-wrap: break-word;
+  line-height: 1.3;
 }
 
 .sender-cell {
+  font-size: 11px;
   color: var(--saai-text-secondary);
-  font-size: 12px;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100px;
+  word-wrap: break-word;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .more-indicator {
   text-align: center;
-  padding: 8px;
+  font-size: 11px;
   color: var(--saai-text-secondary);
-  font-size: 12px;
+  padding: 4px 0;
   font-style: italic;
 }
 
 .view-full-btn {
-  background: rgba(123, 97, 255, 0.1);
-  color: var(--saai-primary-color);
+  background: var(--saai-primary-gradient);
+  color: white;
   border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
+  border-radius: 8px;
+  padding: 8px 16px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
+  margin-top: 12px;
   transition: all 0.2s ease;
   font-family: 'Inter', sans-serif;
-  margin-left: auto;
   display: block;
-  margin-top: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: 100%;
 }
 
 .view-full-btn:hover {
-  background: rgba(123, 97, 255, 0.15);
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(123, 97, 255, 0.3);
 }
 
 .no-emails {
-  color: var(--saai-text-secondary);
   text-align: center;
-  margin: 20px 0;
-  padding: 20px;
+  padding: 24px;
+  color: var(--saai-text-secondary);
 }
 
 .no-emails-icon {
-  font-size: 32px;
+  font-size: 24px;
   margin-bottom: 8px;
-  opacity: 0.5;
 }
 
 .no-emails-text {
   font-size: 14px;
-  font-style: italic;
-  color: var(--saai-text-secondary);
+  font-weight: 500;
 }
 
 /* Gmail Integration - Clean layout adjustment */
