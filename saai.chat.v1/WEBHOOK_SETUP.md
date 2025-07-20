@@ -1,21 +1,21 @@
 # n8n Webhook Setup Guide
 
 ## Current Issue
-The extension is receiving HTTP 404 errors when trying to send messages to the n8n webhook. This means the webhook URL `https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot` is not accessible or not properly configured.
+The extension is receiving HTTP 404 errors when trying to send messages to the n8n webhook. This means the webhook URL `https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot` is not accessible or not properly configured.
 
 ## Webhook Configuration
 
 ### 1. Verify Webhook URL
 The current webhook URL in `background.js` is:
 ```
-https://dxbdev999.app.n8n.cloud/webhook-test/oauth/callback
+https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot
 ```
 
 ### 2. Test Webhook Manually
 You can test if the webhook is working by making a manual request:
 
 ```bash
-curl -X POST https://dxbdev999.app.n8n.cloud/webhook-test/oauth/callback \
+curl -X POST https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "test_user",

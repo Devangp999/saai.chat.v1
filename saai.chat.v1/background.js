@@ -45,7 +45,10 @@ async function handleN8NRequest(data) {
     let url;
     switch (endpoint) {
         case 'chat':
-            url = 'https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot';
+            url = 'https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot';
+            break;
+        case 'summarize':
+            url = 'https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot';
             break;
         default:
             throw new Error('Invalid endpoint');
@@ -129,7 +132,7 @@ async function handleFallbackResponse(endpoint, payload) {
         
         // Find the best matching response
         const lowerMessage = userMessage.toLowerCase();
-        let response = 'I understand you\'re asking about "' + userMessage + '". The n8n webhook is currently unavailable. Please check your webhook configuration at: https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot';
+        let response = 'I understand you\'re asking about "' + userMessage + '". The n8n webhook is currently unavailable. Please check your webhook configuration at: https://dxbdev999.app.n8n.cloud/webhook-test/Sa.AI-Chatbot';
         
         for (const [key, value] of Object.entries(mockResponses)) {
             if (lowerMessage.includes(key)) {
