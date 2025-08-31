@@ -34,7 +34,7 @@
     ]
   },
   "externally_connectable": {
-    "matches": ["https://pdiaflpjdhdlfkedgobdlcnmhdahcdhl.chromiumapp.org/*"]
+    "matches": ["https://cmmjlngjamdemediohghdbinocakjkfj.chromiumapp.org/*"]
   },
   "background": {
     "service_worker": "background.js"

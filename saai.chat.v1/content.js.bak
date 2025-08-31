@@ -481,7 +481,7 @@ async function handleVoiceTurn(userText, indicator, confidence = 1) {
       
               if (extractedText && extractedText.trim()) {
           // Apply formatting to voice responses as well
-          replyText = extractedText; // keep it raw for voice
+          replyText = formatUnstructuredResponse(extractedText);
         } else {
         console.warn('[SaAI][Voice] No valid text extracted, using fallback');
         replyText = 'I received your request but couldn\'t extract a proper response.';

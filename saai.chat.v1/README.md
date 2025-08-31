@@ -34,8 +34,8 @@ The extension communicates with n8n workflows for:
 - Email summarization
 
 Webhook URLs are configured in `background.js`:
-- Chat endpoint: `https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot`
-- OAuth callback: `https://dxbdev999.app.n8n.cloud/webhook-test/oauth/callback`
+- Chat endpoint: `https://dxb2025.app.n8n.cloud/webhook/Sa.AI-NishantChatbot`
+- OAuth callback: `https://dxb2025.app.n8n.cloud/webhook/oauth/callback`
 
 ## Usage
 

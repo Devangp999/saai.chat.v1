@@ -1,21 +1,21 @@
 # n8n Webhook Setup Guide
 
 ## Current Issue
-The extension is receiving HTTP 404 errors when trying to send messages to the n8n webhook. This means the webhook URL `https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot` is not accessible or not properly configured.
+The extension is receiving HTTP 404 errors when trying to send messages to the n8n webhook. This means the webhook URL `https://dxb2025.app.n8n.cloud/webhook/Sa.AI-NishantChatbot` is not accessible or not properly configured.
 
 ## Webhook Configuration
 
 ### 1. Verify Webhook URL
 The current webhook URL in `background.js` is:
 ```
-https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot
+https://dxb2025.app.n8n.cloud/webhook/Sa.AI-NishantChatbot
 ```
 
 ### 2. Test Webhook Manually
 You can test if the webhook is working by making a manual request:
 
 ```bash
-curl -X POST https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot \
+curl -X POST https://dxb2025.app.n8n.cloud/webhook/Sa.AI-NishantChatbot \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "test_user",
@@ -63,9 +63,14 @@ The webhook should return JSON in one of these formats:
 ## Troubleshooting Steps
 
 ### 1. Check n8n Instance
-- Verify your n8n instance is running at `https://dxbdev999.app.n8n.cloud/`
-- Check if the webhook endpoint `/webhook/Sa.AI-Chatbot` exists
+- Verify your n8n instance is running at `https://dxb2025.app.n8n.cloud/`
+- Check if the webhook endpoint `/webhook/Sa.AI-NishantChatbot` exists
 - Ensure the webhook is active and not paused
+
+### OAuth Callback
+Make sure your OAuth redirect URI is set to the new path:
+
+`https://dxb2025.app.n8n.cloud/webhook/oauth/callback`
 
 ### 2. Verify Webhook Configuration
 In your n8n workflow:
@@ -79,13 +84,13 @@ Try these alternative webhook URLs:
 
 ```javascript
 // Option 1: Different path
-url = 'https://dxbdev999.app.n8n.cloud/webhook/Sa.AI-Chatbot';
+url = 'https://dxb2025.app.n8n.cloud/webhook/Sa.AI-NishantChatbot';
 
 // Option 2: Different naming
-url = 'https://dxbdev999.app.n8n.cloud/webhook/chat';
+url = 'https://dxb2025.app.n8n.cloud/webhook/chat';
 
 // Option 3: Different subdomain
-url = 'https://n8n.dxbdev999.app/webhook/Sa.AI-Chatbot';
+url = 'https://n8n.dxb2025.app/webhook/Sa.AI-NishantChatbot';
 ```
 
 ### 4. Update Background Script
