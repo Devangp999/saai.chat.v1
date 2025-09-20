@@ -1,11 +1,101 @@
 // Sa.AI Gmail Assistant Content Script
 // Complete rewrite for seamless Gmail integration
 
-// Prevent duplicate script loading
-if (window.saaiInitialized) {
-  console.log('[SaAI] Script already initialized, skipping...');
+// Simple, reliable logging for production
+function debugLog(...args) {
+  // Disabled for production - can enable for debugging
+  // console.log('[SaAI]', ...args);
+}
+function debugError(...args) {
+  console.error('[SaAI]', ...args); // Always show errors
+}
+function debugWarn(...args) {
+  // Disabled for production - can enable for debugging
+  // console.warn('[SaAI]', ...args);
+}
+
+// Robust network request wrapper with timeout and error handling
+async function safeRequest(url, options = {}, timeout = 50000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    
+    debugError('Network request failed:', error);
+    throw error;
+  }
+}
+
+// Safe storage operations with error handling
+async function safeStorageGet(keys) {
+  try {
+    return await chrome.storage.local.get(keys);
+  } catch (error) {
+    debugError('Storage get failed:', error);
+    return {};
+  }
+}
+
+async function safeStorageSet(data) {
+  try {
+    await chrome.storage.local.set(data);
+    return true;
+  } catch (error) {
+    debugError('Storage set failed:', error);
+    return false;
+  }
+}
+
+// Performance optimization - DOM element cache
+const domCache = new Map();
+function getCachedElement(id) {
+  if (!domCache.has(id)) {
+    domCache.set(id, document.getElementById(id));
+  }
+  return domCache.get(id);
+}
+
+// User experience - loading states and network monitoring
+function showLoadingState(element, message = 'Loading...') {
+  if (element) {
+    element.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;"><div style="width: 16px; height: 16px; border: 2px solid #ccc; border-top: 2px solid #0f172a; border-radius: 50%; animation: spin 1s linear infinite;"></div>${message}</div>`;
+  }
+}
+
+let isOnline = navigator.onLine;
+window.addEventListener('online', () => {
+  isOnline = true;
+  debugLog('Connection restored');
+});
+
+window.addEventListener('offline', () => {
+  isOnline = false;
+  debugWarn('Connection lost');
+});
+
+// Robust idempotent initialization - prevent duplicate script loading
+if (window.__saaiInjected || document.getElementById('saai-gmail-sidebar')) {
+  debugLog('Script already initialized, skipping...');
 } else {
-  window.saaiInitialized = true;
+  window.__saaiInjected = true;
   
   let SIDEBAR_WIDTH = 320; // Will be updated from storage
   const SIDEBAR_ID = 'saai-gmail-sidebar';
@@ -18,9 +108,12 @@ if (window.saaiInitialized) {
 // === CORE INITIALIZATION ===
 
 async function initialize() {
-  if (isInitialized) return;
+  if (isInitialized || document.getElementById(SIDEBAR_ID)) {
+    debugLog('Already initialized, skipping...');
+    return;
+  }
   
-  console.log('[SaAI] Initializing Sa.AI Gmail Assistant');
+  debugLog('Initializing Sa.AI Gmail Assistant');
   
   try {
     // Load saved sidebar width from storage
@@ -28,10 +121,10 @@ async function initialize() {
       const { sidebarWidth } = await chrome.storage.local.get(['sidebarWidth']);
       if (sidebarWidth && sidebarWidth >= 320 && sidebarWidth <= 500) {
         SIDEBAR_WIDTH = sidebarWidth;
-        console.log('[SaAI] Loaded saved sidebar width:', SIDEBAR_WIDTH);
+        debugLog('Loaded saved sidebar width:', SIDEBAR_WIDTH);
       }
     } catch (error) {
-      console.log('[SaAI] Using default sidebar width:', SIDEBAR_WIDTH);
+      debugLog('Using default sidebar width:', SIDEBAR_WIDTH);
     }
     
     // Wait for Gmail to be fully loaded
@@ -48,28 +141,28 @@ async function initialize() {
     
     // Check if sidebar should be open from previous session
     const { sidebarOpen } = await chrome.storage.local.get(['sidebarOpen']);
-    console.log('[SaAI] Checking sidebar state from storage:', sidebarOpen);
+    debugLog('Checking sidebar state from storage:', sidebarOpen);
     if (sidebarOpen) {
-      console.log('[SaAI] Restoring sidebar from previous session');
+      debugLog('Restoring sidebar from previous session');
       await openSidebar();
     } else {
-      console.log('[SaAI] No previous sidebar state found, starting closed');
+      debugLog('No previous sidebar state found, starting closed');
     }
     
     isInitialized = true;
-    console.log('[SaAI] Initialization complete');
+    debugLog('Initialization complete');
     
     // Double-check sidebar state after initialization
     await checkAndRestoreSidebarState();
     
     // Additional delayed check to ensure sidebar is properly restored
     setTimeout(async () => {
-      console.log('[SaAI] Delayed sidebar state check...');
+      debugLog('Delayed sidebar state check...');
       await checkAndRestoreSidebarState();
     }, 1000);
     
   } catch (error) {
-    console.error('[SaAI] Initialization failed:', error);
+    debugError('Initialization failed:', error);
   }
 }
 
@@ -80,6 +173,7 @@ let voiceSession = {
   recognizer: null, 
   mediaStream: null, 
   speaking: false,
+  processing: false,  // NEW: Prevents recording restart during n8n processing
   awaitingConfirmation: false,
   pendingCommand: null,
   errorCount: 0
@@ -125,6 +219,7 @@ async function startVoiceMode(indicator, exitBtn, voiceBtn) {
   voiceSession.active = true;
   voiceSession.segments = [];
   voiceSession.errorCount = 0; // Reset error count
+  voiceSession.processing = false; // Reset processing state
   voiceSession.awaitingConfirmation = false; // Reset confirmation state
   voiceSession.pendingCommand = null; // Clear any pending commands
   
@@ -149,10 +244,10 @@ function startVoiceHeartbeat() {
   
   // Conservative heartbeat - only restart if truly lost
   voiceHeartbeat = setInterval(() => {
-    if (voiceSession.active && !voiceSession.speaking && !voiceSession.recognizer && !voiceSession.awaitingConfirmation) {
+    if (voiceSession.active && !voiceSession.speaking && !voiceSession.processing && !voiceSession.recognizer && !voiceSession.awaitingConfirmation) {
       const indicator = document.getElementById('voice-indicator');
       if (indicator) {
-        console.log('[SaAI][Voice] Heartbeat: Recognition seems lost, restarting');
+        debugLog('[Voice] Heartbeat: Recognition seems lost, restarting');
         startListening(indicator);
       }
     } else if (!voiceSession.active) {
@@ -183,12 +278,13 @@ async function loadVoiceSpeedPreference() {
       if (savedSpeed === 1.5 && btn150) btn150.classList.add('active');
     }
   } catch (e) {
-    console.warn('[SaAI][Voice] Failed to load speed preference:', e);
+    debugWarn('[Voice] Failed to load speed preference:', e);
   }
 }
 
 async function exitVoiceMode(indicator, exitBtn, voiceBtn) {
   voiceSession.active = false;
+  voiceSession.processing = false; // Clear processing state when exiting
   
   // Stop heartbeat
   if (voiceHeartbeat) {
@@ -236,7 +332,7 @@ async function startListening(indicator) {
   try {
     await testMicrophoneAccess();
   } catch (e) {
-    console.error('[SaAI][Voice] Microphone test failed:', e);
+    debugError('[Voice] Microphone test failed:', e);
     updateVoiceIndicator('error', 'Microphone access failed');
     speak('Unable to access microphone. Please check permissions.');
     return;
@@ -265,13 +361,13 @@ async function startListening(indicator) {
             });
           }
           
-          console.log('[SaAI][Voice] Alternatives:', alternatives);
+          debugLog('[Voice] Alternatives:', alternatives);
           
           // Apply smart confidence filtering
           const bestResult = getBestTranscript(alternatives);
           
           if (bestResult) {
-            console.log('[SaAI][Voice] Selected:', bestResult.transcript, 'confidence:', bestResult.confidence);
+            debugLog('[Voice] Selected:', bestResult.transcript, 'confidence:', bestResult.confidence);
             
             // Reset error count on successful recognition
             voiceSession.errorCount = 0;
@@ -284,13 +380,13 @@ async function startListening(indicator) {
               try {
                 voiceSession.recognizer.stop();
               } catch (e) {
-                console.warn('[SaAI][Voice] Error stopping recognizer:', e);
+                debugWarn('[Voice] Error stopping recognizer:', e);
               }
             }
             voiceSession.recognizer = null;
             await handleVoiceTurn(correctedTranscript, indicator, bestResult.confidence);
           } else {
-            console.log('[SaAI][Voice] All alternatives below confidence threshold');
+            debugLog('[Voice] All alternatives below confidence threshold');
             speak('I didn\'t catch that clearly. Could you repeat?');
             // Don't stop recognition, keep listening
           }
@@ -303,13 +399,13 @@ async function startListening(indicator) {
         }
       }
     } catch (error) {
-      console.error('[SaAI][Voice] Error processing speech result:', error);
+      debugError('[Voice] Error processing speech result:', error);
       speak('Sorry, there was an error processing your speech');
     }
   };
   
   rec.onerror = (e) => {
-    console.error('[SaAI][Voice] Recognition error:', e.error);
+    debugError('[Voice] Recognition error:', e.error);
     voiceSession.recognizer = null;
     
     // Handle different error types with appropriate user feedback
@@ -320,7 +416,7 @@ async function startListening(indicator) {
         return;
         
       case 'no-speech':
-        console.log('[SaAI][Voice] No speech detected, continuing...');
+        debugLog('[Voice] No speech detected, continuing...');
         // This is normal, just restart
         break;
         
@@ -340,23 +436,23 @@ async function startListening(indicator) {
         return;
         
       case 'bad-grammar':
-        console.log('[SaAI][Voice] Grammar error, continuing...');
+        debugLog('[Voice] Grammar error, continuing...');
         break;
         
       default:
-        console.warn('[SaAI][Voice] Unknown error:', e.error);
+        debugWarn('[Voice] Unknown error:', e.error);
         updateVoiceIndicator('error', `Error: ${e.error}`);
         // Don't speak for unknown errors to prevent loops
-        console.log('[SaAI][Voice] Suppressing speech for unknown error to prevent loops');
+        debugLog('[Voice] Suppressing speech for unknown error to prevent loops');
     }
     
     // For recoverable errors, restart after a delay (but limit retries)
-    if (voiceSession.active && !voiceSession.speaking) {
+    if (voiceSession.active && !voiceSession.speaking && !voiceSession.processing) {
       // Track error count to prevent infinite loops
       voiceSession.errorCount = (voiceSession.errorCount || 0) + 1;
       
       if (voiceSession.errorCount > 3) {
-        console.error('[SaAI][Voice] Too many errors, stopping voice mode');
+        debugError('[Voice] Too many errors, stopping voice mode');
         updateVoiceIndicator('error', 'Too many errors - voice mode stopped');
         speak('Too many recognition errors occurred. Please try restarting voice mode.');
         voiceSession.active = false;
@@ -365,8 +461,8 @@ async function startListening(indicator) {
       
       const delay = e.error === 'network' ? 3000 : 1500; // Longer delays
       setTimeout(() => {
-        if (voiceSession.active && !voiceSession.speaking) {
-          console.log('[SaAI][Voice] Restarting after error:', e.error, 'attempt:', voiceSession.errorCount);
+        if (voiceSession.active && !voiceSession.speaking && !voiceSession.processing) {
+          debugLog('[Voice] Restarting after error:', e.error, 'attempt:', voiceSession.errorCount);
           startListening(indicator);
         }
       }, delay);
@@ -374,31 +470,31 @@ async function startListening(indicator) {
   };
   
   rec.onend = () => {
-    console.log('[SaAI][Voice] Recognition ended, active:', voiceSession.active, 'speaking:', voiceSession.speaking);
+    debugLog('[Voice] Recognition ended, active:', voiceSession.active, 'speaking:', voiceSession.speaking);
     voiceSession.recognizer = null;
     
     // DON'T auto-restart here - let the speech completion handle restart
     // This prevents the continuous listening loop
-    console.log('[SaAI][Voice] Not auto-restarting from onend - waiting for speech completion');
+    debugLog('[Voice] Not auto-restarting from onend - waiting for speech completion');
   };
   
   rec.onstart = () => {
-    console.log('[SaAI][Voice] Recognition started successfully');
+    debugLog('[Voice] Recognition started successfully');
     updateVoiceIndicator('listening', 'Listening… (say something)');
   };
   
   try {
     rec.start();
-    console.log('[SaAI][Voice] Starting new recognition session');
+    debugLog('[Voice] Starting new recognition session');
   } catch (err) {
-    console.error('[SaAI][Voice] Failed to start recognition:', err);
+    debugError('[Voice] Failed to start recognition:', err);
     voiceSession.recognizer = null;
     updateVoiceIndicator('error', 'Failed to start listening');
   }
 }
 
 async function stopListening(indicator, voiceBtn) {
-  console.log('[SaAI][Voice] Stopping listening...');
+  debugLog('[Voice] Stopping listening...');
   
   if (voiceSession.recognizer) {
     try { 
@@ -408,7 +504,7 @@ async function stopListening(indicator, voiceBtn) {
       voiceSession.recognizer.onstart = null;
       voiceSession.recognizer.stop(); 
     } catch (err) {
-      console.warn('[SaAI][Voice] Error stopping recognizer:', err);
+      debugWarn('[Voice] Error stopping recognizer:', err);
     }
     voiceSession.recognizer = null;
   }
@@ -423,7 +519,7 @@ async function stopListening(indicator, voiceBtn) {
 }
 
 async function handleVoiceTurn(userText, indicator, confidence = 1) {
-  console.log('[SaAI][Voice] Processing:', userText, 'confidence:', confidence);
+  debugLog('[Voice] Processing:', userText, 'confidence:', confidence);
   
   // Check for voice commands first
   if (handleVoiceCommands(userText)) {
@@ -437,6 +533,7 @@ async function handleVoiceTurn(userText, indicator, confidence = 1) {
   }
   
   voiceSession.segments.push({ role: 'user', text: userText });
+  voiceSession.processing = true;  // NEW: Set processing state
   updateVoiceIndicator('processing', 'Processing…');
   
   // Simplified payload for faster processing
@@ -460,7 +557,7 @@ async function handleVoiceTurn(userText, indicator, confidence = 1) {
   let replyText = 'I understand.';
   
   try {
-    console.log('[SaAI][Voice] Sending to n8n...');
+    debugLog('[Voice] Sending to n8n...');
     const startTime = Date.now();
     
     const resp = await chrome.runtime.sendMessage({ 
@@ -469,62 +566,64 @@ async function handleVoiceTurn(userText, indicator, confidence = 1) {
     });
     
     const endTime = Date.now();
-    console.log('[SaAI][Voice] Response time:', endTime - startTime, 'ms');
-    console.log('[SaAI][Voice] Full response:', JSON.stringify(resp, null, 2));
+    debugLog('[Voice] Response time:', endTime - startTime, 'ms');
+    debugLog('[Voice] Full response:', JSON.stringify(resp, null, 2));
     
     if (resp && resp.success) {
       const data = resp.data;
-      console.log('[SaAI][Voice] Response data:', JSON.stringify(data, null, 2));
+      debugLog('[Voice] Response data:', JSON.stringify(data, null, 2));
       
       const extractedText = extractVoiceReplyText(data);
-      console.log('[SaAI][Voice] Extracted text:', extractedText);
+      debugLog('[Voice] Extracted text:', extractedText);
       
               if (extractedText && extractedText.trim()) {
           // Apply formatting to voice responses as well
           replyText = extractedText; // keep it raw for voice
         } else {
-        console.warn('[SaAI][Voice] No valid text extracted, using fallback');
+        debugWarn('[Voice] No valid text extracted, using fallback');
         replyText = 'I received your request but couldn\'t extract a proper response.';
       }
     } else {
-      console.error('[SaAI][Voice] Request failed:', resp);
+      debugError('[Voice] Request failed:', resp);
       replyText = 'Sorry, I had trouble with that request.';
     }
   } catch (e) {
-    console.error('[SaAI][Voice] Error:', e);
+    debugError('[Voice] Error:', e);
     replyText = 'Network issue. Please try again.';
+    voiceSession.processing = false;  // NEW: Clear processing state on error
   }
   
-  console.log('[SaAI][Voice] Speaking:', replyText);
+  debugLog('[Voice] Speaking:', replyText);
   voiceSession.segments.push({ role: 'assistant', text: replyText });
+  voiceSession.processing = false;  // NEW: Clear processing state before speaking
   await speak(replyText);
 }
 
 function extractVoiceReplyText(data) {
-  console.log('[SaAI][Voice] extractVoiceReplyText input:', typeof data, data);
+  debugLog('[Voice] extractVoiceReplyText input:', typeof data, data);
   
   try {
     if (!data) {
-      console.log('[SaAI][Voice] No data provided');
+      debugLog('[Voice] No data provided');
       return '';
     }
     
     // If server wrapped in array, use first item
     if (Array.isArray(data) && data.length > 0) {
-      console.log('[SaAI][Voice] Data is array, using first item');
+      debugLog('[Voice] Data is array, using first item');
       data = data[0];
     }
     
     // If data is a string, try to parse as JSON or return as-is
     if (typeof data === 'string') {
-      console.log('[SaAI][Voice] Data is string:', data);
+      debugLog('[Voice] Data is string:', data);
       // Sometimes n8n returns a JSON string
       if (data.trim().startsWith('{') || data.trim().startsWith('[')) {
         try { 
           data = JSON.parse(data);
-          console.log('[SaAI][Voice] Parsed JSON string:', data);
+          debugLog('[Voice] Parsed JSON string:', data);
         } catch { 
-          console.log('[SaAI][Voice] Failed to parse JSON, returning string as-is');
+          debugLog('[Voice] Failed to parse JSON, returning string as-is');
           return data.trim(); 
         }
       } else {
@@ -537,15 +636,15 @@ function extractVoiceReplyText(data) {
     
     for (const field of fields) {
       if (data[field]) {
-        console.log('[SaAI][Voice] Found field:', field, typeof data[field]);
+        debugLog('[Voice] Found field:', field, typeof data[field]);
         
         if (typeof data[field] === 'string' && data[field].trim()) {
-          console.log('[SaAI][Voice] Returning string field:', field);
+          debugLog('[Voice] Returning string field:', field);
           return data[field].trim();
         }
         
         if (typeof data[field] === 'object') {
-          console.log('[SaAI][Voice] Processing object field:', field);
+          debugLog('[Voice] Processing object field:', field);
           const extracted = extractVoiceReplyText(data[field]);
           if (extracted) return extracted;
         }
@@ -555,16 +654,16 @@ function extractVoiceReplyText(data) {
     // Handle reply field specially (legacy support)
     if (data.reply) {
       let r = data.reply;
-      console.log('[SaAI][Voice] Processing reply field:', typeof r);
+      debugLog('[Voice] Processing reply field:', typeof r);
       
       if (typeof r === 'string') {
         // If reply contains JSON, parse it
         if (r.trim().startsWith('{') || r.trim().startsWith('[')) {
           try { 
             r = JSON.parse(r); 
-            console.log('[SaAI][Voice] Parsed reply JSON:', r);
+            debugLog('[Voice] Parsed reply JSON:', r);
           } catch {
-            console.log('[SaAI][Voice] Failed to parse reply JSON, using string');
+            debugLog('[Voice] Failed to parse reply JSON, using string');
             return r.trim();
           }
         } else {
@@ -574,7 +673,7 @@ function extractVoiceReplyText(data) {
       
       // If reply is an array of result objects
       if (Array.isArray(r)) {
-        console.log('[SaAI][Voice] Reply is array with', r.length, 'items');
+        debugLog('[Voice] Reply is array with', r.length, 'items');
         const parts = [];
         for (const item of r) {
           if (!item) continue;
@@ -583,14 +682,14 @@ function extractVoiceReplyText(data) {
           else if (typeof item.text === 'string' && item.text.trim()) parts.push(item.text.trim());
         }
         if (parts.length) {
-          console.log('[SaAI][Voice] Extracted from reply array:', parts.join(' '));
+          debugLog('[Voice] Extracted from reply array:', parts.join(' '));
           return parts.join(' ');
       }
       }
       
       // If reply is an object
       if (r && typeof r === 'object') {
-        console.log('[SaAI][Voice] Reply is object, recursing');
+        debugLog('[Voice] Reply is object, recursing');
         const extracted = extractVoiceReplyText(r);
         if (extracted) return extracted;
       }
@@ -607,15 +706,15 @@ function extractVoiceReplyText(data) {
     }
     if (found) {
       const summary = `Summary prepared: ${parts.join(', ')}. Say show chat to view details.`;
-      console.log('[SaAI][Voice] Generated email summary:', summary);
+      debugLog('[Voice] Generated email summary:', summary);
       return summary;
     }
     
-    console.log('[SaAI][Voice] No extractable text found in data');
+    debugLog('[Voice] No extractable text found in data');
     return '';
     
   } catch (e) {
-    console.error('[SaAI][Voice] extractVoiceReplyText failed:', e);
+    debugError('[Voice] extractVoiceReplyText failed:', e);
   return '';
   }
 }
@@ -655,40 +754,40 @@ async function speak(text) {
     utter.text = processedText;
     
     utter.onend = () => { 
-      console.log('[SaAI][Voice] Speech finished, voiceSession.active:', voiceSession.active);
+      debugLog('[Voice] Speech finished, voiceSession.active:', voiceSession.active);
       voiceSession.speaking = false;
       
-      // Only restart if voice mode is active and we don't already have a recognizer
-      if (voiceSession.active && !voiceSession.recognizer) {
-        console.log('[SaAI][Voice] Scheduling recognition restart after speech...');
+      // Only restart if voice mode is active, not processing, and we don't already have a recognizer
+      if (voiceSession.active && !voiceSession.processing && !voiceSession.recognizer) {
+        debugLog('[Voice] Scheduling recognition restart after speech...');
         setTimeout(() => {
-          console.log('[SaAI][Voice] Speech timeout - active:', voiceSession.active, 'speaking:', voiceSession.speaking, 'recognizer:', !!voiceSession.recognizer);
-          if (voiceSession.active && !voiceSession.speaking && !voiceSession.recognizer) {
+          debugLog('[Voice] Speech timeout - active:', voiceSession.active, 'speaking:', voiceSession.speaking, 'processing:', voiceSession.processing, 'recognizer:', !!voiceSession.recognizer);
+          if (voiceSession.active && !voiceSession.speaking && !voiceSession.processing && !voiceSession.recognizer) {
             const indicator = document.getElementById('voice-indicator');
             if (indicator) {
-              console.log('[SaAI][Voice] ✅ Restarting recognition after speech');
+              debugLog('[Voice] ✅ Restarting recognition after speech');
               startListening(indicator);
             } else {
-              console.log('[SaAI][Voice] ❌ No indicator found for restart');
+              debugLog('[Voice] ❌ No indicator found for restart');
             }
           } else {
-            console.log('[SaAI][Voice] ❌ Not restarting - conditions not met');
+            debugLog('[Voice] ❌ Not restarting - conditions not met');
           }
         }, 1500); // Longer delay to ensure speech is fully finished
       } else {
-        console.log('[SaAI][Voice] ❌ Not scheduling restart - active:', voiceSession.active, 'recognizer exists:', !!voiceSession.recognizer);
+        debugLog('[Voice] ❌ Not scheduling restart - active:', voiceSession.active, 'recognizer exists:', !!voiceSession.recognizer);
       }
     };
     
     utter.onerror = (e) => {
-      console.error('[SaAI][Voice] Speech error:', e);
+      debugError('[Voice] Speech error:', e);
       voiceSession.speaking = false;
       updateVoiceIndicator('error', 'Speech error');
     };
     
     speechSynthesis.speak(utter);
   } catch (e) {
-    console.error('[SaAI][Voice] Speak error:', e);
+    debugError('[Voice] Speak error:', e);
     voiceSession.speaking = false;
     updateVoiceIndicator('error', 'Speech error');
   }
@@ -710,7 +809,7 @@ async function setVoiceSpeed(speed, btn100, btn125, btn150) {
   try {
     await chrome.storage.local.set({ voiceSpeed: speed });
   } catch (e) {
-    console.warn('[SaAI][Voice] Failed to save speed preference:', e);
+    debugWarn('[Voice] Failed to save speed preference:', e);
   }
   
   // Test the new speed if voice mode is active
@@ -820,7 +919,7 @@ async function testMicrophoneAccess() {
         }
       });
       
-      console.log('[SaAI][Voice] Microphone access granted');
+      debugLog('[Voice] Microphone access granted');
       
       // Clean up immediately - don't test levels as it's causing issues
       stream.getTracks().forEach(track => track.stop());
@@ -828,7 +927,7 @@ async function testMicrophoneAccess() {
       resolve();
       
     } catch (error) {
-      console.error('[SaAI][Voice] Microphone access failed:', error);
+      debugError('[Voice] Microphone access failed:', error);
       reject(error);
     }
   });
@@ -900,7 +999,7 @@ function applySpeechCorrections(transcript) {
   corrected = corrected.replace(/\s+/g, ' ').trim();
   
   if (corrected !== transcript.toLowerCase()) {
-    console.log('[SaAI][Voice] Applied correction:', transcript, '->', corrected);
+    debugLog('[Voice] Applied correction:', transcript, '->', corrected);
   }
   
   return corrected;
@@ -921,7 +1020,7 @@ function shouldConfirmCommand(transcript, confidence) {
 }
 
 async function handleCommandConfirmation(userText, indicator, confidence) {
-  console.log('[SaAI][Voice] Requesting confirmation for:', userText);
+  debugLog('[Voice] Requesting confirmation for:', userText);
   
   // Store the pending command
   voiceSession.pendingCommand = { text: userText, confidence };
@@ -1022,25 +1121,25 @@ function handleVoiceCommands(text) {
 async function checkAndRestoreSidebarState() {
   try {
     const { sidebarOpen } = await chrome.storage.local.get(['sidebarOpen']);
-    console.log('[SaAI] Post-initialization sidebar state check:', sidebarOpen);
+    debugLog('Post-initialization sidebar state check:', sidebarOpen);
     
     if (sidebarOpen && !isSidebarOpen) {
-      console.log('[SaAI] Sidebar should be open but isn\'t, restoring...');
+      debugLog('Sidebar should be open but isn\'t, restoring...');
       await openSidebar();
     } else if (!sidebarOpen && isSidebarOpen) {
-      console.log('[SaAI] Sidebar should be closed but isn\'t, closing...');
+      debugLog('Sidebar should be closed but isn\'t, closing...');
       await closeSidebar();
     } else {
-      console.log('[SaAI] Sidebar state is consistent');
+      debugLog('Sidebar state is consistent');
     }
     
     // Additional check: if sidebar should be open but element doesn't exist
     if (sidebarOpen && !document.getElementById(SIDEBAR_ID)) {
-      console.log('[SaAI] Sidebar should be open but element missing, recreating...');
+      debugLog('Sidebar should be open but element missing, recreating...');
       await openSidebar();
     }
   } catch (error) {
-    console.error('[SaAI] Error checking sidebar state:', error);
+    debugError('Error checking sidebar state:', error);
   }
 }
 
@@ -1061,7 +1160,7 @@ async function waitForGmailReady() {
 
 function setupMessageListeners() {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('[SaAI] Message received:', request);
+    debugLog('Message received:', request);
     
     switch (request.action) {
       case 'ping':
@@ -1087,7 +1186,7 @@ function setupStorageListeners() {
   chrome.storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'local') {
       if (changes.isConnected) {
-        console.log('[SaAI] Connection status changed:', changes.isConnected.newValue);
+        debugLog('Connection status changed:', changes.isConnected.newValue);
         if (isSidebarOpen) {
           updateSidebarContent();
         }
@@ -1099,7 +1198,7 @@ function setupStorageListeners() {
 function setupVisibilityListener() {
   document.addEventListener('visibilitychange', async () => {
     if (!document.hidden) {
-      console.log('[SaAI] Page became visible, checking sidebar state...');
+      debugLog('Page became visible, checking sidebar state...');
       await checkAndRestoreSidebarState();
     }
   });
@@ -1123,9 +1222,9 @@ function saveChatHistory() {
     });
     
     chrome.storage.local.set({ chatHistory: messages });
-    console.log('[SaAI] Chat history saved:', messages.length, 'messages');
+    debugLog('Chat history saved:', messages.length, 'messages');
   } catch (error) {
-    console.error('[SaAI] Error saving chat history:', error);
+    debugError('Error saving chat history:', error);
   }
 }
 
@@ -1136,7 +1235,7 @@ function loadChatHistory() {
     
     chrome.storage.local.get(['chatHistory'], (result) => {
       if (result.chatHistory && result.chatHistory.length > 0) {
-        console.log('[SaAI] Loading chat history:', result.chatHistory.length, 'messages');
+        debugLog('Loading chat history:', result.chatHistory.length, 'messages');
         
         // Clear existing content
         chatArea.innerHTML = '';
@@ -1156,27 +1255,27 @@ function loadChatHistory() {
         // Scroll to bottom
         chatArea.scrollTop = chatArea.scrollHeight;
         
-        console.log('[SaAI] Chat history loaded successfully');
+        debugLog('Chat history loaded successfully');
       }
     });
   } catch (error) {
-    console.error('[SaAI] Error loading chat history:', error);
+    debugError('Error loading chat history:', error);
   }
 }
 
 function clearChatHistory() {
   try {
     chrome.storage.local.remove(['chatHistory']);
-    console.log('[SaAI] Chat history cleared');
+    debugLog('Chat history cleared');
   } catch (error) {
-    console.error('[SaAI] Error clearing chat history:', error);
+    debugError('Error clearing chat history:', error);
   }
 }
 
 // === SIDEBAR MANAGEMENT ===
 
 async function toggleSidebar() {
-  console.log('[SaAI] Toggle sidebar called, current state:', isSidebarOpen);
+  debugLog('Toggle sidebar called, current state:', isSidebarOpen);
   
   if (isSidebarOpen) {
     await closeSidebar();
@@ -1188,7 +1287,7 @@ async function toggleSidebar() {
 async function openSidebar() {
   if (isSidebarOpen) return;
   
-  console.log('[SaAI] Opening sidebar');
+  debugLog('Opening sidebar');
   
   try {
     // Create and inject sidebar
@@ -1201,10 +1300,10 @@ async function openSidebar() {
     isSidebarOpen = true;
     await chrome.storage.local.set({ sidebarOpen: true });
     
-    console.log('[SaAI] Sidebar opened successfully, state saved');
+    debugLog('Sidebar opened successfully, state saved');
     
   } catch (error) {
-    console.error('[SaAI] Failed to open sidebar:', error);
+    debugError('Failed to open sidebar:', error);
     throw error;
   }
 }
@@ -1212,7 +1311,7 @@ async function openSidebar() {
 async function closeSidebar() {
   if (!isSidebarOpen) return;
   
-  console.log('[SaAI] Closing sidebar');
+  debugLog('Closing sidebar');
   
   try {
     // Remove sidebar element
@@ -1241,10 +1340,10 @@ async function closeSidebar() {
     isSidebarOpen = false;
     await chrome.storage.local.set({ sidebarOpen: false });
     
-    console.log('[SaAI] Sidebar closed successfully');
+    debugLog('Sidebar closed successfully');
     
   } catch (error) {
-    console.error('[SaAI] Failed to close sidebar:', error);
+    debugError('Failed to close sidebar:', error);
     throw error;
   }
 }
@@ -1257,7 +1356,7 @@ async function createSidebar() {
   const gmailMainWrapper = document.querySelector('.nH');
   
   if (!gmailMainWrapper) {
-    console.error('[SaAI] Could not find Gmail main wrapper (.nH)');
+    debugError('Could not find Gmail main wrapper (.nH)');
     return;
   }
   
@@ -1310,7 +1409,7 @@ async function createSidebar() {
   resizeHandle.title = 'Drag to resize sidebar';
   sidebarElement.appendChild(resizeHandle);
   
-  console.log('[SaAI] Resize handle created and added to sidebar');
+  debugLog('Resize handle created and added to sidebar');
   
   // Add sidebar to flex container
   flexContainer.appendChild(sidebarElement);
@@ -1349,7 +1448,7 @@ function addResizeFunctionality(sidebar, resizeHandle) {
     const deltaX = startX - e.clientX;
     let newWidth = startWidth + deltaX; // Fixed: drag left = wider, drag right = narrower
     
-    console.log('[SaAI] Resize debug:', {
+    debugLog('Resize debug:', {
       startX,
       currentX: e.clientX,
       deltaX,
@@ -1378,7 +1477,7 @@ function addResizeFunctionality(sidebar, resizeHandle) {
     
     // Save width to storage
     chrome.storage.local.set({ sidebarWidth: SIDEBAR_WIDTH });
-    console.log('[SaAI] Saved sidebar width:', SIDEBAR_WIDTH);
+    debugLog('Saved sidebar width:', SIDEBAR_WIDTH);
     
     // Restore cursor and selection
     document.body.style.userSelect = '';
@@ -1396,12 +1495,12 @@ function addResizeFunctionality(sidebar, resizeHandle) {
 }
 
 function adjustGmailLayout(sidebarOpen) {
-  console.log('[SaAI] Adjusting Gmail layout, sidebar open:', sidebarOpen);
+  debugLog('Adjusting Gmail layout, sidebar open:', sidebarOpen);
   
   // Find the flex container
   const flexContainer = document.querySelector('.saai-flex-container');
   if (!flexContainer) {
-    console.log('[SaAI] No flex container found, layout adjustment not needed');
+    debugLog('No flex container found, layout adjustment not needed');
     return;
   }
   
@@ -1418,30 +1517,30 @@ function adjustGmailLayout(sidebarOpen) {
     if (sidebarOpen) {
       // When sidebar is open, make Gmail content take remaining space
       const currentWidth = SIDEBAR_WIDTH;
-      child.style.flex = `1 1 calc(100vw - ${currentWidth}px) !important`;
-      child.style.width = `calc(100vw - ${currentWidth}px) !important`;
-      child.style.maxWidth = `calc(100vw - ${currentWidth}px) !important`;
-      child.style.minWidth = `calc(100vw - ${currentWidth}px) !important`;
-      child.style.boxSizing = 'border-box !important';
-      child.style.overflow = 'hidden !important';
+      child.style.setProperty('flex', `1 1 calc(100vw - ${currentWidth}px)`, 'important');
+      child.style.setProperty('width', `calc(100vw - ${currentWidth}px)`, 'important');
+      child.style.setProperty('max-width', `calc(100vw - ${currentWidth}px)`, 'important');
+      child.style.setProperty('min-width', `calc(100vw - ${currentWidth}px)`, 'important');
+      child.style.setProperty('box-sizing', 'border-box', 'important');
+      child.style.setProperty('overflow', 'hidden', 'important');
     } else {
       // When sidebar is closed, restore full width
-      child.style.flex = '1 1 100vw !important';
-      child.style.width = '100vw !important';
-      child.style.maxWidth = '100vw !important';
-      child.style.minWidth = '100vw !important';
-      child.style.boxSizing = 'border-box !important';
-      child.style.overflow = 'auto !important';
+      child.style.setProperty('flex', '1 1 100vw', 'important');
+      child.style.setProperty('width', '100vw', 'important');
+      child.style.setProperty('max-width', '100vw', 'important');
+      child.style.setProperty('min-width', '100vw', 'important');
+      child.style.setProperty('box-sizing', 'border-box', 'important');
+      child.style.setProperty('overflow', 'auto', 'important');
     }
   });
   
   // Prevent horizontal scrolling when sidebar is open
   if (sidebarOpen) {
-    document.body.style.overflowX = 'hidden !important';
-    document.documentElement.style.overflowX = 'hidden !important';
+    document.body.style.setProperty('overflow-x', 'hidden', 'important');
+    document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
   } else {
-    document.body.style.overflowX = 'auto !important';
-    document.documentElement.style.overflowX = 'auto !important';
+    document.body.style.setProperty('overflow-x', 'auto', 'important');
+    document.documentElement.style.setProperty('overflow-x', 'auto', 'important');
   }
 }
 
@@ -1643,7 +1742,7 @@ function addSidebarEventListeners(sidebar, isConnected) {
   const closeBtn = sidebar.querySelector('#close-sidebar');
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {
-      console.log('[SaAI] Close button clicked');
+      debugLog('Close button clicked');
       closeSidebar();
     });
   }
@@ -1654,7 +1753,7 @@ function addSidebarEventListeners(sidebar, isConnected) {
     if (startBtn) {
       // This is the welcome page - add start button listener
       startBtn.addEventListener('click', () => {
-        console.log('[SaAI] Start button clicked');
+        debugLog('Start button clicked');
         showChatInterface();
       });
     } else {
@@ -1712,7 +1811,7 @@ function addSidebarEventListeners(sidebar, isConnected) {
     const connectBtn = sidebar.querySelector('#saai-connect-btn');
     if (connectBtn) {
       connectBtn.addEventListener('click', () => {
-        console.log('[SaAI] Connect Gmail button clicked');
+        debugLog('Connect Gmail button clicked');
         startOAuthFlow();
       });
     }
@@ -1721,7 +1820,7 @@ function addSidebarEventListeners(sidebar, isConnected) {
     const debugBtn = sidebar.querySelector('#saai-debug-btn');
     if (debugBtn) {
       debugBtn.addEventListener('click', async () => {
-        console.log('[SaAI] Debug button clicked');
+        debugLog('Debug button clicked');
         const debugInfo = await debugConnectionStatus();
         
         alert(`Connection Debug Info:
@@ -1946,7 +2045,7 @@ function extractSubjectLine() {
     if (subjectElement) {
       const subject = subjectElement.textContent?.trim();
       if (subject && subject.length > 0) {
-        console.log('[SaAI] Subject found using selector:', selector, 'Subject:', subject);
+        debugLog('Subject found using selector:', selector, 'Subject:', subject);
         return subject;
       }
     }
@@ -1957,12 +2056,12 @@ function extractSubjectLine() {
   if (pageTitle && pageTitle.includes(' - ')) {
     const subject = pageTitle.split(' - ')[0].trim();
     if (subject && subject.length > 0) {
-      console.log('[SaAI] Subject extracted from page title:', subject);
+      debugLog('Subject extracted from page title:', subject);
       return subject;
     }
   }
   
-  console.log('[SaAI] No subject line found');
+  debugLog('No subject line found');
   return null;
 }
 
@@ -1978,7 +2077,7 @@ function formatUnstructuredResponse(text) {
     return text;
   }
   
-  console.log('[SaAI] Formatting unstructured response:', text);
+  debugLog('Formatting unstructured response:', text);
   
   let formattedText = text;
   
@@ -2115,7 +2214,7 @@ function formatUnstructuredResponse(text) {
   // 13. Add container wrapper
   formattedText = `<div class="formatted-response">${formattedText}</div>`;
   
-  console.log('[SaAI] Formatted response created');
+  debugLog('Formatted response created');
   return formattedText;
 }
 
@@ -2124,7 +2223,7 @@ function formatUnstructuredResponse(text) {
 async function handleSendMessage() {
   const input = document.getElementById('chat-input');
   if (!input) {
-    console.error('[SaAI] Chat input not found');
+    debugError('Chat input not found');
     return;
   }
   
@@ -2133,7 +2232,7 @@ async function handleSendMessage() {
   
   const chatArea = document.getElementById(CHAT_AREA_ID);
   if (!chatArea) {
-    console.error('[SaAI] Chat area not found');
+    debugError('Chat area not found');
     return;
   }
   
@@ -2168,7 +2267,7 @@ async function handleSendMessage() {
     const isOnThreadPage = isThreadPage();
     const subjectLine = extractSubjectLine();
     
-    console.log('[SaAI] Message analysis:', {
+    debugLog('Message analysis:', {
       message,
       isSummarizeRequest,
       isInboxSummarizeRequest,
@@ -2206,16 +2305,16 @@ async function handleSendMessage() {
       if (subjectLine) {
         payload.subjectLine = subjectLine;
       }
-      console.log('[SaAI] Adding thread summarization data:', { 
+      debugLog('Adding thread summarization data:', { 
         threadId, 
         action: 'summarize_thread',
         subjectLine: subjectLine || 'Not found'
       });
     }
     
-    console.log('[SaAI] Sending message to n8n:', payload);
+    debugLog('Sending message to n8n:', payload);
     
-    console.log('[SaAI] Sending message to background script with payload:', payload);
+    debugLog('Sending message to background script with payload:', payload);
     
     // Send message to background script
     const response = await chrome.runtime.sendMessage({
@@ -2226,7 +2325,7 @@ async function handleSendMessage() {
       }
     });
     
-    console.log('[SaAI] Response received from background script:', response);
+    debugLog('Response received from background script:', response);
     
     // Remove typing indicator
     if (typingIndicator) {
@@ -2234,44 +2333,44 @@ async function handleSendMessage() {
     }
     
     if (response?.success) {
-      console.log('[SaAI] Response received:', response.data);
-      console.log('[SaAI] Response data type:', typeof response.data);
-      console.log('[SaAI] Response data keys:', response.data ? Object.keys(response.data) : 'null');
-      console.log('[SaAI] Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
+      debugLog('Response received:', response.data);
+      debugLog('Response data type:', typeof response.data);
+      debugLog('Response data keys:', response.data ? Object.keys(response.data) : 'null');
+      debugLog('Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
       
       // Handle array-wrapped responses from n8n
       let responseData = response.data;
-      console.log('[SaAI] Raw response data type:', typeof responseData);
-      console.log('[SaAI] Raw response data:', responseData);
-      console.log('[SaAI] Raw response data length:', Array.isArray(responseData) ? responseData.length : 'not array');
+      debugLog('Raw response data type:', typeof responseData);
+      debugLog('Raw response data:', responseData);
+      debugLog('Raw response data length:', Array.isArray(responseData) ? responseData.length : 'not array');
       
       // Handle string responses (double-encoded JSON)
       if (typeof responseData === 'string') {
-        console.log('[SaAI] Response is a string, attempting to parse...');
+        debugLog('Response is a string, attempting to parse...');
         try {
           responseData = JSON.parse(responseData);
-          console.log('[SaAI] Successfully parsed string to:', typeof responseData);
-          console.log('[SaAI] Parsed response data:', responseData);
+          debugLog('Successfully parsed string to:', typeof responseData);
+          debugLog('Parsed response data:', responseData);
         } catch (parseError) {
-          console.error('[SaAI] Failed to parse response string:', parseError);
+          debugError('Failed to parse response string:', parseError);
         }
       }
       
       if (Array.isArray(responseData)) {
-        console.log('[SaAI] Response is an array, extracting first item');
+        debugLog('Response is an array, extracting first item');
         responseData = responseData[0];
-        console.log('[SaAI] Extracted response data:', responseData);
-        console.log('[SaAI] Extracted response data type:', typeof responseData);
-        console.log('[SaAI] Extracted response data keys:', Object.keys(responseData));
-        console.log('[SaAI] Extracted response data JSON:', JSON.stringify(responseData, null, 2));
-        console.log('[SaAI] Has reply property:', responseData.hasOwnProperty('reply'));
-        console.log('[SaAI] Reply property value:', responseData.reply);
-        console.log('[SaAI] Reply property type:', typeof responseData.reply);
+        debugLog('Extracted response data:', responseData);
+        debugLog('Extracted response data type:', typeof responseData);
+        debugLog('Extracted response data keys:', Object.keys(responseData));
+        debugLog('Extracted response data JSON:', JSON.stringify(responseData, null, 2));
+        debugLog('Has reply property:', responseData.hasOwnProperty('reply'));
+        debugLog('Reply property value:', responseData.reply);
+        debugLog('Reply property type:', typeof responseData.reply);
       }
       
       // Check if this is a fallback response
       if (responseData?.fallback) {
-        console.log('[SaAI] Using fallback response - n8n webhook unavailable');
+        debugLog('Using fallback response - n8n webhook unavailable');
         
         // Create a special message for fallback responses
         const fallbackDiv = document.createElement('div');
@@ -2299,51 +2398,51 @@ async function handleSendMessage() {
         appendTableMessage('bot', responseData, chatArea);
       } else if (responseData && responseData.reply) {
         // Handle nested JSON reply format
-        console.log('[SaAI] Found reply field, processing...');
-        console.log('[SaAI] Reply field exists and has value');
+        debugLog('Found reply field, processing...');
+        debugLog('Reply field exists and has value');
         try {
-          console.log('[SaAI] Processing reply:', responseData.reply);
-          console.log('[SaAI] Reply type:', typeof responseData.reply);
-          console.log('[SaAI] Reply starts with [ or {:', responseData.reply.startsWith('[') || responseData.reply.startsWith('{'));
+          debugLog('Processing reply:', responseData.reply);
+          debugLog('Reply type:', typeof responseData.reply);
+          debugLog('Reply starts with [ or {:', responseData.reply.startsWith('[') || responseData.reply.startsWith('{'));
           
           // First, try to parse the outer reply
           let parsedReply = responseData.reply;
           
           // If it's a string that looks like JSON, parse it
           if (typeof parsedReply === 'string' && (parsedReply.startsWith('[') || parsedReply.startsWith('{'))) {
-            console.log('[SaAI] Parsing JSON string...');
+            debugLog('Parsing JSON string...');
             parsedReply = JSON.parse(parsedReply);
-            console.log('[SaAI] Parsed successfully, result type:', typeof parsedReply);
-            console.log('[SaAI] Parsed result is array:', Array.isArray(parsedReply));
+            debugLog('Parsed successfully, result type:', typeof parsedReply);
+            debugLog('Parsed result is array:', Array.isArray(parsedReply));
           }
           
           // Handle array format with nested JSON strings
           if (Array.isArray(parsedReply)) {
-            console.log('[SaAI] Parsed reply is an array:', parsedReply);
-            console.log('[SaAI] Array length:', parsedReply.length);
+            debugLog('Parsed reply is an array:', parsedReply);
+            debugLog('Array length:', parsedReply.length);
             // Extract summary from the first item if it has a summary field
             const firstItem = parsedReply[0];
-            console.log('[SaAI] First item:', firstItem);
-            console.log('[SaAI] First item type:', typeof firstItem);
-            console.log('[SaAI] First item keys:', firstItem ? Object.keys(firstItem) : 'null');
+            debugLog('First item:', firstItem);
+            debugLog('First item type:', typeof firstItem);
+            debugLog('First item keys:', firstItem ? Object.keys(firstItem) : 'null');
             
             if (firstItem && firstItem.summary) {
-              console.log('[SaAI] Found summary field:', firstItem.summary);
+              debugLog('Found summary field:', firstItem.summary);
               appendMessage('bot', firstItem.summary, chatArea);
             } else if (firstItem && typeof firstItem === 'object') {
               // Handle complex structured response
-              console.log('[SaAI] Found complex structured response');
-              console.log('[SaAI] First item is object, checking for structured format...');
+              debugLog('Found complex structured response');
+              debugLog('First item is object, checking for structured format...');
               const formattedResponse = formatStructuredResponse(firstItem);
-              console.log('[SaAI] Formatted response created, length:', formattedResponse.length);
+              debugLog('Formatted response created, length:', formattedResponse.length);
               appendMessage('bot', formattedResponse, chatArea);
             } else {
               // If no summary field, try to extract from the item itself
               const summaryText = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem);
-              console.log('[SaAI] Using fallback summary text:', summaryText);
+              debugLog('Using fallback summary text:', summaryText);
               // Apply formatting to unstructured text
               const formattedText = formatUnstructuredResponse(summaryText);
-              console.log('[SaAI] Using formatted fallback text, length:', formattedText.length);
+              debugLog('Using formatted fallback text, length:', formattedText.length);
               appendMessage('bot', formattedText, chatArea);
             }
           } else if (parsedReply && typeof parsedReply === 'object') {
@@ -2358,15 +2457,15 @@ async function handleSendMessage() {
                       } else {
               // Fallback to raw text - apply formatting
               const formattedText = formatUnstructuredResponse(parsedReply);
-              console.log('[SaAI] Using formatted fallback text, length:', formattedText.length);
+              debugLog('Using formatted fallback text, length:', formattedText.length);
               appendMessage('bot', formattedText, chatArea);
             }
           
         } catch (parseError) {
-          console.error('[SaAI] Error parsing reply:', parseError);
-          console.error('[SaAI] Parse error details:', parseError.message);
-          console.error('[SaAI] Parse error stack:', parseError.stack);
-          console.log('[SaAI] Raw reply data:', responseData.reply);
+          debugError('Error parsing reply:', parseError);
+          debugError('Parse error details:', parseError.message);
+          debugError('Parse error stack:', parseError.stack);
+          debugLog('Raw reply data:', responseData.reply);
           
           // If parsing fails, try to extract plain text
           let plainText = responseData.reply;
@@ -2384,83 +2483,83 @@ async function handleSendMessage() {
         }
       } else if (responseData && typeof responseData === 'string') {
         // Handle direct string response
-        console.log('[SaAI] Found direct string response:', responseData);
+        debugLog('Found direct string response:', responseData);
         // Apply formatting to unstructured text
         const formattedText = formatUnstructuredResponse(responseData);
-        console.log('[SaAI] Using formatted string response, length:', formattedText.length);
+        debugLog('Using formatted string response, length:', formattedText.length);
         appendMessage('bot', formattedText, chatArea);
               } else if (responseData && responseData.summary) {
           // Handle direct summary field
-          console.log('[SaAI] Found direct summary field:', responseData.summary);
+          debugLog('Found direct summary field:', responseData.summary);
           // Apply formatting to summary text
           const formattedText = formatUnstructuredResponse(responseData.summary);
-          console.log('[SaAI] Using formatted summary, length:', formattedText.length);
+          debugLog('Using formatted summary, length:', formattedText.length);
           appendMessage('bot', formattedText, chatArea);
               } else if (responseData && responseData.message) {
           // Direct message response
           // Apply formatting to message text
           const formattedText = formatUnstructuredResponse(responseData.message);
-          console.log('[SaAI] Using formatted message, length:', formattedText.length);
+          debugLog('Using formatted message, length:', formattedText.length);
           appendMessage('bot', formattedText, chatArea);
       } else if (responseData && Array.isArray(responseData)) {
         // Handle direct array response
-        console.log('[SaAI] Found direct array response:', responseData);
+        debugLog('Found direct array response:', responseData);
         const firstItem = responseData[0];
         if (firstItem && firstItem.summary) {
-          console.log('[SaAI] Found summary in direct array:', firstItem.summary);
+          debugLog('Found summary in direct array:', firstItem.summary);
           appendMessage('bot', firstItem.summary, chatArea);
                   } else {
-            console.log('[SaAI] Using first array item as text:', firstItem);
+            debugLog('Using first array item as text:', firstItem);
             const itemText = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem);
             // Apply formatting to array item text
             const formattedText = formatUnstructuredResponse(itemText);
-            console.log('[SaAI] Using formatted array item, length:', formattedText.length);
+            debugLog('Using formatted array item, length:', formattedText.length);
             appendMessage('bot', formattedText, chatArea);
           }
       } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData)) {
         // Handle direct structured object response
-        console.log('[SaAI] Checking for direct structured object response...');
+        debugLog('Checking for direct structured object response...');
         const keys = Object.keys(responseData);
-        console.log('[SaAI] Object keys:', keys);
+        debugLog('Object keys:', keys);
         
         // Check if this is a structured response with sections
         if (keys.some(key => key.includes('Subject') || key.includes('Purpose') || key.includes('Points') || key.includes('Decisions') || key.includes('Questions') || key.includes('Action'))) {
-          console.log('[SaAI] Found direct structured response object');
+          debugLog('Found direct structured response object');
           const formattedResponse = formatStructuredResponse(responseData);
-          console.log('[SaAI] Formatted direct response, length:', formattedResponse.length);
+          debugLog('Formatted direct response, length:', formattedResponse.length);
           appendMessage('bot', formattedResponse, chatArea);
         } else if (responseData.summary) {
           // Check for direct summary field
-          console.log('[SaAI] Found direct summary field');
+          debugLog('Found direct summary field');
           appendMessage('bot', responseData.summary, chatArea);
         } else if (responseData.message) {
           // Check for direct message field
-          console.log('[SaAI] Found direct message field');
+          debugLog('Found direct message field');
           appendMessage('bot', responseData.message, chatArea);
         } else {
           // Fallback for other object types
-          console.log('[SaAI] Using object as JSON string');
+          debugLog('Using object as JSON string');
           appendMessage('bot', JSON.stringify(responseData, null, 2), chatArea);
         }
       } else {
         // Check for empty response
         if (!responseData || (typeof responseData === 'object' && Object.keys(responseData).length === 0)) {
-          console.log('[SaAI] Empty response detected:', responseData);
+          debugLog('Empty response detected:', responseData);
           appendMessage('bot', 'I received an empty response from the AI. This might be due to a webhook configuration issue or the AI service being temporarily unavailable. Please try again in a moment.', chatArea);
           return;
         }
         
         // Fallback
-        console.log('[SaAI] No valid response format found, using fallback');
-        console.log('[SaAI] responseData:', responseData);
-        console.log('[SaAI] responseData.reply:', responseData?.reply);
-        console.log('[SaAI] responseData.message:', responseData?.message);
-        console.log('[SaAI] responseData.summary:', responseData?.summary);
-        console.log('[SaAI] responseData type:', typeof responseData);
-        console.log('[SaAI] responseData keys:', responseData ? Object.keys(responseData) : 'null');
-        console.log('[SaAI] responseData.reply exists:', !!responseData?.reply);
-        console.log('[SaAI] responseData.reply truthy:', !!responseData?.reply);
-        console.log('[SaAI] responseData.reply length:', responseData?.reply?.length);
+        debugLog('No valid response format found, using fallback');
+        debugLog('responseData:', responseData);
+        debugLog('responseData.reply:', responseData?.reply);
+        debugLog('responseData.message:', responseData?.message);
+        debugLog('responseData.summary:', responseData?.summary);
+        debugLog('responseData type:', typeof responseData);
+        debugLog('responseData keys:', responseData ? Object.keys(responseData) : 'null');
+        debugLog('responseData.reply exists:', !!responseData?.reply);
+        debugLog('responseData.reply truthy:', !!responseData?.reply);
+        debugLog('responseData.reply length:', responseData?.reply?.length);
         appendMessage('bot', 'I received your message!', chatArea);
       }
     } else {
@@ -2468,7 +2567,7 @@ async function handleSendMessage() {
     }
     
   } catch (error) {
-    console.error('[SaAI] Chat error:', error);
+    debugError('Chat error:', error);
     
     // Remove typing indicator
     if (typingIndicator) {
@@ -2529,7 +2628,7 @@ function computeDaysOld(input) {
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   } catch (error) {
-    console.error('[SaAI] Error computing days old:', error);
+    debugError('Error computing days old:', error);
     return null;
   }
 }
@@ -2639,7 +2738,7 @@ function appendTableMessage(sender, emailData, chatArea) {
   const PREVIEW_ROWS = 3;
   let previewMode = totalRows > 6;
   
-  console.log('[SaAI] Table preview mode calculation:', {
+  debugLog('Table preview mode calculation:', {
     totalRows,
     PREVIEW_ROWS,
     previewMode,
@@ -2738,7 +2837,7 @@ function appendTableMessage(sender, emailData, chatArea) {
   });
   
   if (previewMode) {
-    console.log('[SaAI] Creating View Full Summary button');
+    debugLog('Creating View Full Summary button');
     const viewFullBtn = document.createElement('button');
     viewFullBtn.textContent = '📋 View Full Summary';
     viewFullBtn.className = 'view-full-btn';
@@ -2746,31 +2845,31 @@ function appendTableMessage(sender, emailData, chatArea) {
     
     // Add both onclick and addEventListener for better compatibility
     viewFullBtn.onclick = () => {
-      console.log('[SaAI] View Full Summary button clicked (onclick)');
-      console.log('[SaAI] Email data for full table:', emailData);
+      debugLog('View Full Summary button clicked (onclick)');
+      debugLog('Email data for full table:', emailData);
       openFullTable(emailData);
     };
     
     viewFullBtn.addEventListener('click', (e) => {
-      console.log('[SaAI] View Full Summary button clicked (addEventListener)');
+      debugLog('View Full Summary button clicked (addEventListener)');
       e.preventDefault();
       e.stopPropagation();
-      console.log('[SaAI] Email data for full table:', emailData);
+      debugLog('Email data for full table:', emailData);
       openFullTable(emailData);
     });
     
     tableContainer.appendChild(viewFullBtn);
-    console.log('[SaAI] View Full Summary button created and added to DOM');
+    debugLog('View Full Summary button created and added to DOM');
     
     // Verify button was added
     const addedButton = tableContainer.querySelector('#view-full-summary-btn');
-    console.log('[SaAI] Button verification:', {
+    debugLog('Button verification:', {
       buttonFound: !!addedButton,
       buttonText: addedButton?.textContent,
       buttonParent: addedButton?.parentNode?.className
     });
   } else {
-    console.log('[SaAI] Preview mode is false, not creating button');
+    debugLog('Preview mode is false, not creating button');
   }
   
   // If no emails found
@@ -2791,12 +2890,12 @@ function appendTableMessage(sender, emailData, chatArea) {
 
 function openFullTable(emailData) {
   try {
-    console.log('[SaAI] Opening full table with data:', emailData);
+    debugLog('Opening full table with data:', emailData);
     
     const tableWindow = window.open('', '_blank');
     
     if (!tableWindow) {
-      console.error('[SaAI] Failed to open new window - popup blocked?');
+      debugError('Failed to open new window - popup blocked?');
       alert('Failed to open full table. Please allow popups for this site.');
       return;
     }
@@ -2824,7 +2923,7 @@ function openFullTable(emailData) {
       // Otherwise assume it's already the final object shape
       return raw || {};
     } catch (e) {
-      console.warn('[SaAI] Failed to normalize email data, using raw:', e);
+      debugWarn('Failed to normalize email data, using raw:', e);
       return raw || {};
     }
   }
@@ -2946,7 +3045,7 @@ function openFullTable(emailData) {
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       return diffDays;
     } catch (error) {
-      console.error('[SaAI] Error computing days old:', error);
+      debugError('Error computing days old:', error);
       return null;
     }
   }
@@ -3173,10 +3272,10 @@ function openFullTable(emailData) {
   `);
     tableWindow.document.close();
     
-    console.log('[SaAI] Full table opened successfully');
+    debugLog('Full table opened successfully');
     
   } catch (error) {
-    console.error('[SaAI] Error opening full table:', error);
+    debugError('Error opening full table:', error);
     alert('Error opening full table: ' + error.message);
   }
 }
@@ -3184,7 +3283,7 @@ function openFullTable(emailData) {
 // === OAuth & Connection ===
 
 function startOAuthFlow() {
-  console.log('[SaAI] Starting OAuth flow');
+  debugLog('Starting OAuth flow');
   
   // Show OAuth loader
   showOAuthLoader();
@@ -3198,10 +3297,10 @@ function startOAuthFlow() {
     }
   }, (response) => {
     if (response?.success) {
-      console.log('[SaAI] OAuth success response:', response.data);
+      debugLog('OAuth success response:', response.data);
       showOAuthSuccess();
     } else {
-      console.error('[SaAI] OAuth failed:', response?.error);
+      debugError('OAuth failed:', response?.error);
       showStatus('OAuth failed. Please try again.', 'error');
     }
   });
@@ -3214,7 +3313,7 @@ async function isGmailConnected() {
 
 async function debugConnectionStatus() {
   const storage = await chrome.storage.local.get(['userId', 'isConnected', 'oauthData']);
-  console.log('[SaAI] Debug connection status:', storage);
+  debugLog('Debug connection status:', storage);
   return storage;
 }
 
@@ -3382,7 +3481,7 @@ async function showTaskModal() {
     }
     
     // Call the webhook to extract tasks
-    const response = await fetch('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
+    const response = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3403,7 +3502,7 @@ async function showTaskModal() {
     updateTaskModalWithData(modal, responseData);
     
   } catch (error) {
-    console.error('[SaAI] Task extraction failed:', error);
+    debugError('Task extraction failed:', error);
     
     // Show error state
     modal.querySelector('.task-modal-body').innerHTML = `
@@ -3572,7 +3671,7 @@ function addTaskModalEventListeners(modal) {
           // Just close the modal - the task is already saved locally and will show on next open
           closeTaskModal(modal);
         } catch (error) {
-          console.error('[SaAI] Failed to add task:', error);
+          debugError('Failed to add task:', error);
           // Re-enable button on error
           addBtn.disabled = false;
           addBtn.innerHTML = `
@@ -3606,10 +3705,10 @@ function addTaskModalEventListeners(modal) {
         const taskSource = item.dataset.source;
         if (taskSource === 'manual') {
           toggleTaskComplete(taskId);
-          console.log('[SaAI] Manual task completion toggled:', taskId);
+          debugLog('Manual task completion toggled:', taskId);
         } else {
           // Webhook task - just log for now
-          console.log('[SaAI] Webhook task completion toggled:', taskId);
+          debugLog('Webhook task completion toggled:', taskId);
           // TODO: Could send completion update to webhook later
         }
       });
@@ -3638,7 +3737,7 @@ function addTaskModalEventListeners(modal) {
           }
           
           // Send delete task request to webhook
-          const response = await fetch('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
+          const response = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -3654,22 +3753,22 @@ function addTaskModalEventListeners(modal) {
             throw new Error(`Webhook request failed: ${response.status} ${response.statusText}`);
           }
           
-          console.log('[SaAI] Task deletion sent to webhook successfully');
+          debugLog('Task deletion sent to webhook successfully');
           
           // Remove from local storage if it's a manual task
           const taskSource = item.dataset.source;
           if (taskSource === 'manual') {
             removeTask(taskId);
-            console.log('[SaAI] Manual task deleted from local storage:', taskId);
+            debugLog('Manual task deleted from local storage:', taskId);
           } else {
-            console.log('[SaAI] Webhook task deletion confirmed:', taskId);
+            debugLog('Webhook task deletion confirmed:', taskId);
           }
           
           // Remove from UI
           item.remove();
           
         } catch (error) {
-          console.error('[SaAI] Failed to delete task via webhook:', error);
+          debugError('Failed to delete task via webhook:', error);
           
           // Re-enable delete button on error
           deleteBtn.disabled = false;
@@ -3684,7 +3783,7 @@ function addTaskModalEventListeners(modal) {
           const taskSource = item.dataset.source;
           if (taskSource === 'manual') {
             removeTask(taskId);
-            console.log('[SaAI] Manual task deleted locally (webhook failed):', taskId);
+            debugLog('Manual task deleted locally (webhook failed):', taskId);
             item.remove();
           }
           
@@ -3751,7 +3850,7 @@ async function addManualTask(taskText, priority = 'medium') {
     }
     
     // Send manual task to webhook for Supabase storage
-    const response = await fetch('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
+    const response = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3768,7 +3867,7 @@ async function addManualTask(taskText, priority = 'medium') {
       throw new Error(`Webhook request failed: ${response.status} ${response.statusText}`);
     }
     
-    console.log('[SaAI] Manual task sent to webhook successfully');
+    debugLog('Manual task sent to webhook successfully');
     
     // Also save locally for immediate display
     const tasks = getTasks();
@@ -3783,10 +3882,10 @@ async function addManualTask(taskText, priority = 'medium') {
     tasks.push(newTask);
     saveTasks(tasks);
     
-    console.log('[SaAI] Manual task added locally:', newTask);
+    debugLog('Manual task added locally:', newTask);
     
   } catch (error) {
-    console.error('[SaAI] Failed to add manual task:', error);
+    debugError('Failed to add manual task:', error);
     
     // Still save locally even if webhook fails
     const tasks = getTasks();
@@ -3802,7 +3901,7 @@ async function addManualTask(taskText, priority = 'medium') {
     tasks.push(newTask);
     saveTasks(tasks);
     
-    console.log('[SaAI] Manual task saved locally (webhook failed):', newTask);
+    debugLog('Manual task saved locally (webhook failed):', newTask);
     
     // Could show user notification about sync failure
     // alert('Task added locally but failed to sync with backend. Please try again later.');
@@ -3836,7 +3935,7 @@ new MutationObserver(() => {
   const url = location.href;
   if (url !== lastUrl) {
     lastUrl = url;
-    console.log('[SaAI] Gmail navigation detected');
+    debugLog('Gmail navigation detected');
     // Re-initialize if needed
     if (!isInitialized) {
       initialize();
