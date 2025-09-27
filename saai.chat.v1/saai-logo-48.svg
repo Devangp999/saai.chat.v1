@@ -1,0 +1,9 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="48" height="48" rx="6" fill="#0f172a"/>
+  
+  <!-- Sa.AI Logo -->
+  <text x="8" y="26" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="white">Sa.</text>
+  <circle cx="33" cy="20" r="9" fill="white"/>
+  <text x="28.5" y="23" font-family="system-ui, -apple-system, sans-serif" font-size="7" font-weight="700" fill="#0f172a">AI</text>
+</svg>

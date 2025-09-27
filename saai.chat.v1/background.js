@@ -1,11 +1,54 @@
 // Background script for Sa.AI Gmail Assistant
 
+// Simple, reliable logging for production
+function debugLog(...args) {
+  // Temporarily enabled for debugging
+  console.log('[SaAI-BG]', ...args);
+}
+function debugError(...args) {
+  console.error('[SaAI]', ...args); // Always show errors
+}
+function debugWarn(...args) {
+  // Disabled for production - can enable for debugging
+  // console.warn('[SaAI]', ...args);
+}
+
+// Robust network request wrapper with timeout and error handling
+async function safeRequest(url, options = {}, timeout = 90000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    
+    debugError('Network request failed:', error);
+    throw error;
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('Sa.AI Gmail Assistant installed');
+    debugLog('Sa.AI Gmail Assistant installed');
     
     // Clear any old data
     chrome.storage.local.clear(() => {
-        console.log('Storage cleared on installation');
+        debugLog('Storage cleared on installation');
     });
 });
 
@@ -19,14 +62,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-// Handle tab updates to inject content script
+// Handle tab updates to inject content script only if needed
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url && tab.url.includes('mail.google.com')) {
-        chrome.tabs.sendMessage(tabId, {action: 'checkInitialization'}).catch(() => {
-            // Content script not loaded, inject it
+        // Ping first - only inject if content script is missing
+        chrome.tabs.sendMessage(tabId, {action: 'checkInitialization'}).then((response) => {
+            // Content script responded - already loaded, no injection needed
+            debugLog('Content script already loaded on tab', tabId);
+        }).catch((error) => {
+            // Content script not responding - safe to inject
+            debugLog('Content script missing, injecting on tab', tabId);
             chrome.scripting.executeScript({
                 target: {tabId: tabId},
                 files: ['content.js']
+            }).catch((injectError) => {
+                debugError('Failed to inject content script:', injectError);
             });
         });
     }
@@ -65,7 +115,7 @@ async function handleN8NRequest(data) {
     console.log('[Background] Sending request to n8n:', { url, payload });
     
     try {
-    const response = await fetch(url, {
+    const response = await safeRequest(url, {
         method: 'POST',
         headers: {
                 'Content-Type': 'application/json',
@@ -183,7 +233,7 @@ async function handleFallbackResponse(endpoint, payload) {
 // Handle OAuth flow
 async function handleOAuthFlow() {
     const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
-    const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback/Nishant';
+    const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback';
     const scopes = 'email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +

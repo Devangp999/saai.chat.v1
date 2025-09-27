@@ -1,26 +1,38 @@
+// Simple, reliable logging for production
+function debugLog(...args) {
+  // Temporarily enabled for debugging
+  console.log('[SaAI]', ...args);
+}
+function debugError(...args) {
+  console.error('[SaAI]', ...args); // Always show errors
+}
+function debugWarn(...args) {
+  // Disabled for production - can enable for debugging
+  // console.warn('[SaAI]', ...args);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const authorizeBtn = document.getElementById('authorize');
     const testBtn = document.getElementById('test-connection');
     const statusDiv = document.getElementById('status');
 
-    // Check if user is already authorized
     chrome.storage.local.get(['userId', 'isConnected'], function(result) {
-        console.log('[SaAI] Popup loaded, storage result:', result);
+        debugLog('Popup loaded, storage result:', result);
         if (result.userId) {
             // If userId is present, ensure isConnected is set
             chrome.storage.local.set({ isConnected: true });
-            console.log('[SaAI] Found userId, setting isConnected and showing test button');
+            debugLog('Found userId, setting isConnected and showing test button');
             showStatus('Connected to Sa.AI Gmail Assistant', 'success');
             authorizeBtn.style.display = 'none';
             testBtn.style.display = 'block';
         } else if (result.isConnected) {
             // Fallback for legacy state
-            console.log('[SaAI] Found legacy isConnected, showing test button');
+            debugLog('Found legacy isConnected, showing test button');
             showStatus('Connected to Sa.AI Gmail Assistant', 'success');
             authorizeBtn.style.display = 'none';
             testBtn.style.display = 'block';
         } else {
-            console.log('[SaAI] No connection found, showing authorize button');
+            debugLog('No connection found, showing authorize button');
         }
     });
 
@@ -36,69 +48,59 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, (response) => {
             if (response?.success) {
-                console.log('[SaAI] OAuth success response from background:', response.data);
+                debugLog('OAuth success response from background:', response.data);
                 showStatus('✅ Connected to Sa.AI!', 'success');
                 authorizeBtn.style.display = 'none';
                 testBtn.style.display = 'block';
-                console.log('[SaAI] UI updated - authorizeBtn hidden, testBtn shown');
+                debugLog('UI updated - authorizeBtn hidden, testBtn shown');
             } else {
-                console.error('[SaAI] OAuth via background failed:', response?.error);
+                debugError('OAuth via background failed:', response?.error);
                 showStatus('❌ Connection failed: ' + (response?.error || 'Unknown error'), 'error');
             }
         });
     });
 
     testBtn.addEventListener('click', function() {
-        console.log('[SaAI] Test button clicked');
+        debugLog('Test button clicked');
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-            console.log('[SaAI] Current tab:', tabs[0]);
+            debugLog('Current tab:', tabs[0]);
             if (tabs[0].url.includes('mail.google.com')) {
-                console.log('[SaAI] Sending toggleSidebar message to tab:', tabs[0].id);
+                debugLog('Attempting to communicate with tab:', tabs[0].id);
                 
-                // First, try to inject the content script if it's not already there
-                chrome.scripting.executeScript({
-                    target: { tabId: tabs[0].id },
-                    files: ['content.js']
-                }, function() {
+                // Ping first to check if content script is already loaded
+                chrome.tabs.sendMessage(tabs[0].id, {action: 'ping'}, function(pingResponse) {
                     if (chrome.runtime.lastError) {
-                        console.error('[SaAI] Script injection error:', chrome.runtime.lastError);
-                        showStatus('Error injecting script: ' + chrome.runtime.lastError.message, 'error');
-                        return;
-                    }
-                    
-                    // Wait a moment for the script to initialize, then send message
-                    setTimeout(() => {
-                        // First ping to check if content script is ready
-                        chrome.tabs.sendMessage(tabs[0].id, {action: 'ping'}, function(pingResponse) {
+                        // Content script not loaded - inject it first
+                        debugLog('Content script not found, injecting...');
+                        chrome.scripting.executeScript({
+                            target: { tabId: tabs[0].id },
+                            files: ['content.js']
+                        }, function() {
                             if (chrome.runtime.lastError) {
-                                console.error('[SaAI] Ping failed:', chrome.runtime.lastError);
-                                showStatus('Content script not ready. Please refresh Gmail and try again.', 'error');
+                                debugError('Script injection error:', chrome.runtime.lastError);
+                                showStatus('Error injecting script: ' + chrome.runtime.lastError.message, 'error');
                                 return;
                             }
                             
-                            console.log('[SaAI] Ping successful, sending toggle message');
-                            
-                            // Now send the cleaner open_saai message
-                            chrome.tabs.sendMessage(tabs[0].id, {action: 'open_saai'}, function(response) {
-                                console.log('[SaAI] Message response:', response);
-                                if (chrome.runtime.lastError) {
-                                    console.error('[SaAI] Message error:', chrome.runtime.lastError);
-                                    showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
-                                } else {
-                                    console.log('[SaAI] Sa.AI Assistant opened successfully');
-                                    window.close();
-                                }
-                            });
+                            // Wait for script to initialize, then send message
+                            setTimeout(() => {
+                                sendOpenSaaiMessage(tabs[0].id);
+                            }, 500);
                         });
-                    }, 500);
+                    } else {
+                        // Content script already loaded - send message directly
+                        debugLog('Content script ready, sending message directly');
+                        sendOpenSaaiMessage(tabs[0].id);
+                    }
                 });
             } else {
-                console.log('[SaAI] Not on Gmail, current URL:', tabs[0].url);
+                debugLog('Not on Gmail, current URL:', tabs[0].url);
                 showStatus('Please open Gmail first to use the assistant', 'error');
             }
         });
     });
 
+    // Helper function to show status messages
     function showStatus(message, type) {
         statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
         if (type !== 'info') {
@@ -107,4 +109,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 3000);
         }
     }
-}); 
+});
+
+// Helper function to send the open_saai message
+function sendOpenSaaiMessage(tabId) {
+    chrome.tabs.sendMessage(tabId, {action: 'open_saai'}, function(response) {
+        debugLog('Message response:', response);
+        if (chrome.runtime.lastError) {
+            debugError('Message error:', chrome.runtime.lastError);
+            showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
+        } else {
+            debugLog('Sa.AI Assistant opened successfully');
+            window.close();
+        }
+    });
+}

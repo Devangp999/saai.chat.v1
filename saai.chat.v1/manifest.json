@@ -1,14 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Sa.AI Gmail Assistant",
-  "version": "2.0",
-  "description": "AI-powered Gmail assistant with n8n integration for inbox summarization and task management",
+  "name": "Sa.AI for Gmail",
+  "version": "2.1",
+  "description": "AI-powered Gmail assistant with n8n integration for inbox summarization, thread summarization, voice modeand task management",
   "permissions": [
     "activeTab",
     "storage",
     "scripting",
     "tabs",
-    "windows",
     "identity"
   ],
 
@@ -33,9 +32,6 @@
       "openid"
     ]
   },
-  "externally_connectable": {
-    "matches": ["https://pdiaflpjdhdlfkedgobdlcnmhdahcdhl.chromiumapp.org/*"]
-  },
   "background": {
     "service_worker": "background.js"
   },
@@ -49,17 +45,22 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Sa.AI Gmail Assistant"
+    "default_title": "Sa.AI for Gmail"
   },
   "icons": {
-    "16": "Icons/icon16.png",
-    "48": "Icons/icon48.png",
-    "128": "Icons/icon128.png"
+    "16": "icons/icon 16.jpg",
+    "48": "icons/icon 48.png",
+    "128": "icons/icon 128.png"
+  },
+  "minimum_chrome_version": "88",
+  "short_name": "Sa.AI",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "web_accessible_resources": [
     {
-      "resources": ["content.js", "styles.css"],
-      "matches": ["https://mail.google.com/*"]
-  }
+      "resources": ["icons/*", "debug.html"],
+      "matches": ["https://mail.google.com/*", "<all_urls>"]
+    }
   ]
 }
