@@ -1572,9 +1572,7 @@ function createChatInterfaceHTML() {
     <div id="${CHAT_AREA_ID}" class="chat-area">
       <div class="chat-welcome">
         <div class="chat-welcome-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
+            <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 48px; width: auto;" class="saai-logo-img-small"/>
         </div>
         <h3 class="chat-welcome-title">Hi! I'm your Gmail assistant</h3>
         <p class="chat-welcome-subtitle">How can I help you today?</p>
@@ -1612,9 +1610,7 @@ function createConnectPromptHTML() {
     </div>
     <div class="saai-connect-content">
       <div class="saai-connect-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l1.912 5.813a2 2 0 0 0 1.088 1.088L21 12l-5.813 1.912a2 2 0 0 0-1.088 1.088L12 21l-1.912-5.813a2 2 0 0 0-1.088-1.088L3 12l5.813-1.912a2 2 0 0 0 1.088-1.088L12 3z"/>
-        </svg>
+          <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 32px; width: auto;" class="saai-logo-img-small"/>
       </div>
       
       <h2 class="saai-connect-heading">Welcome to Sa.AI</h2>
@@ -1683,58 +1679,329 @@ function createWelcomePageHTML() {
       <span class="saai-title">Sa.AI Assistant</span>
       <button id="close-sidebar" class="saai-close-btn" title="Close">×</button>
     </div>
-    <div class="saai-welcome-content">
-      <div class="saai-welcome-icon">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l1.912 5.813a2 2 0 0 0 1.088 1.088L21 12l-5.813 1.912a2 2 0 0 0-1.088 1.088L12 21l-1.912-5.813a2 2 0 0 0-1.088-1.088L3 12l5.813-1.912a2 2 0 0 0 1.088-1.088L12 3z"/>
-        </svg>
+    <div id="onboarding-container" class="onboarding-container">
+      <div class="progress-dots">
+        <span class="dot active" data-card="0"></span>
+        <span class="dot" data-card="1"></span>
+        <span class="dot" data-card="2"></span>
+        <span class="dot" data-card="3"></span>
+        <span class="dot" data-card="4"></span>
+        <span class="dot" data-card="5"></span>
       </div>
       
-      <h2 class="saai-welcome-heading">Let's start!</h2>
-      
-      <p class="saai-welcome-description">
-        Your Gmail is now connected. I'm ready to help you manage your inbox more efficiently.
-      </p>
+      <!-- Skip button -->
+      <button id="skip-intro" class="skip-btn">Skip intro</button>
 
-      <div class="saai-welcome-features">
-        <div class="saai-welcome-feature">
-          <div class="saai-welcome-feature-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
-            </svg>
+      <!-- Card 1: Welcome / Gratitude -->
+      <div class="onboarding-card active" data-card="0">
+        <div class="card-content">
+          <div class="saai-logo-container">
+            <div class="saai-logo-main">
+              <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 56px; width: auto;" class="saai-logo-img"/>
+            </div>
+            <div class="confetti-animation"></div>
           </div>
-          <span>Get instant inbox summaries</span>
-        </div>
-        
-        <div class="saai-welcome-feature">
-          <div class="saai-welcome-feature-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9,11 12,14 22,4"/>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-          </div>
-          <span>Extract tasks automatically</span>
-        </div>
-        
-        <div class="saai-welcome-feature">
-          <div class="saai-welcome-feature-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-          </div>
-          <span>Smart email assistance</span>
+          <h2>Thank you for joining our beta phase</h2>
+          <p>We're grateful for your support. You're early, and that means you're helping shape the future of inbox autonomy.</p>
         </div>
       </div>
 
-      <button id="saai-start-btn" class="saai-start-button">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        Start Chatting
-      </button>
+      <!-- Card 2: Features Overview -->
+      <div class="onboarding-card" data-card="1">
+        <div class="card-content">
+          <h2>Your assistant can...</h2>
+          <div class="features-carousel">
+            <div class="feature-item" data-feature="1">
+              <div class="feature-number">1</div>
+              <div class="feature-text">
+                <div class="feature-title">Summarize your inbox in seconds</div>
+                <small>(click on view summary button for better view)</small>
+              </div>
+            </div>
+            <div class="feature-item" data-feature="2">
+              <div class="feature-number">2</div>
+              <div class="feature-text">
+                <div class="feature-title">Extract tasks</div>
+                <div class="feature-subtitle">automatically or add manually</div>
+                <small>(click on task button)</small>
+              </div>
+            </div>
+            <div class="feature-item" data-feature="3">
+              <div class="feature-number">3</div>
+              <div class="feature-text">
+                <div class="feature-title">Summarize threads</div>
+                <div class="feature-subtitle">just open thread</div>
+                <small>and type "summarise this thread"</small>
+              </div>
+            </div>
+            <div class="feature-item" data-feature="4">
+              <div class="feature-number">4</div>
+              <div class="feature-text">
+                <div class="feature-title">Clear chat</div>
+                <div class="feature-subtitle">when needed</div>
+                <small>(click on clear button)</small>
+              </div>
+            </div>
+            <div class="feature-item" data-feature="5">
+              <div class="feature-number">5</div>
+              <div class="feature-text">
+                <div class="feature-title">Talk to your inbox</div>
+                <div class="feature-subtitle">voice & text</div>
+                <small>Ask Sa.AI any question about your emails</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        
+      <!-- Card 3: Credits & Usage -->
+      <div class="onboarding-card" data-card="2">
+        <div class="card-content">
+          <h2>Your beta credits</h2>
+          <div class="credits-display">
+            <div class="credits-counter">
+              <span class="credits-number">1000</span>
+              <span class="credits-label">credits</span>
+          </div>
+            <div class="credits-progress">
+              <div class="progress-bar">
+                <div class="progress-fill"></div>
+              </div>
+            </div>
+          </div>
+          <p style="font-size: 16px; color: var(--saai-text-primary); font-weight: 500;">Each summary, draft, or voice request = 1 credit.</p>
+          <p class="credits-note">We'll add more ways to earn/extend credits soon.</p>
+        </div>
+        </div>
+        
+      <!-- Card 4: Extensibility -->
+      <div class="onboarding-card" data-card="3">
+        <div class="card-content">
+          <h2>Resize and customize</h2>
+          <div class="extensibility-demo">
+            <div class="demo-border">
+              <div class="resize-arrow">↔</div>
+              <p>Drag the border to resize the assistant</p>
+          </div>
+          </div>
+          <p style="font-size: 16px; color: var(--saai-text-primary); font-weight: 500;">Make Sa.AI fit perfectly in your workflow by adjusting the sidebar width.</p>
+        </div>
+      </div>
+
+      <!-- Card 5: Privacy & Trust -->
+      <div class="onboarding-card" data-card="4">
+        <div class="card-content">
+          <div class="privacy-shield">
+            <div class="shield-icon">🛡️</div>
+          </div>
+          <h2>Your privacy, non-negotiable</h2>
+          <div class="privacy-points">
+            <p>• We do not download, share, or peek at your emails.</p>
+            <p>• All processing happens securely with your OAuth token.</p>
+            <p>• No email data is stored on our servers.</p>
+            <p>• Your conversations are processed in real-time only.</p>
+            <p>• Full GDPR compliance and data protection.</p>
+            <p><strong>Your data. Your control. Always.</strong></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 6: Get Started -->
+      <div class="onboarding-card" data-card="5">
+        <div class="card-content">
+          <div class="launch-animation">
+            <div class="chat-bubble">💬</div>
+          </div>
+          <h2>Ready to launch</h2>
+          <p>Remember, this is your inbox, we're just making it smarter.</p>
+          <button class="card-btn launch-btn" id="launch-saai">Start chatting</button>
+        </div>
+      </div>
     </div>
   `;
+}
+
+// OnboardingManager class to handle the card system
+class OnboardingManager {
+  constructor(sidebar) {
+    this.sidebar = sidebar;
+    this.currentCard = 0;
+    this.totalCards = 6;
+    this.isOnboardingComplete = false;
+    this.onboardingContainer = sidebar.querySelector('#onboarding-container');
+    this.cards = sidebar.querySelectorAll('.onboarding-card');
+    this.dots = sidebar.querySelectorAll('.dot');
+    this.skipBtn = sidebar.querySelector('#skip-intro');
+    this.launchBtn = sidebar.querySelector('#launch-saai');
+    
+    debugLog('OnboardingManager initialized:', {
+      onboardingContainer: !!this.onboardingContainer,
+      cards: this.cards.length,
+      dots: this.dots.length,
+      skipBtn: !!this.skipBtn,
+      launchBtn: !!this.launchBtn
+    });
+    
+    this.bindEvents();
+  }
+
+  bindEvents() {
+    // Progress dots navigation
+    this.dots.forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        e.preventDefault();
+        const cardIndex = parseInt(e.target.dataset.card);
+        this.showCard(cardIndex);
+      });
+    });
+
+    // Skip button
+    if (this.skipBtn) {
+      this.skipBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.completeOnboarding();
+      });
+    }
+
+    // Launch button
+    if (this.launchBtn) {
+      this.launchBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.completeOnboarding();
+      });
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (!this.isOnboardingComplete && this.onboardingContainer) {
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          e.preventDefault();
+          this.nextCard();
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          this.prevCard();
+        } else if (e.key === 'Escape') {
+          this.completeOnboarding();
+        }
+      }
+    });
+  }
+
+  showCard(cardIndex) {
+    if (cardIndex < 0 || cardIndex >= this.totalCards) {
+      return;
+    }
+
+    this.currentCard = cardIndex;
+
+    // Update cards
+    this.cards.forEach((card, index) => {
+      card.classList.remove('active', 'prev');
+      if (index === cardIndex) {
+        card.classList.add('active');
+      } else if (index < cardIndex) {
+        card.classList.add('prev');
+      }
+    });
+
+    // Update dots
+    this.dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === cardIndex);
+    });
+
+    // Trigger animations for specific cards
+    this.triggerCardAnimations(cardIndex);
+  }
+
+  triggerCardAnimations(cardIndex) {
+    const card = this.cards[cardIndex];
+    if (!card) return;
+
+    switch(cardIndex) {
+      case 1: // Features card
+        this.animateFeatures(card);
+        break;
+      case 2: // Credits card
+        this.animateCredits(card);
+        break;
+      case 3: // Extensibility card
+        this.animateExtensibility(card);
+        break;
+    }
+  }
+
+  animateFeatures(card) {
+    const features = card.querySelectorAll('.feature-item');
+    features.forEach((feature, index) => {
+      feature.style.animationDelay = `${index * 0.1}s`;
+    });
+  }
+
+  animateCredits(card) {
+    const progressFill = card.querySelector('.progress-fill');
+    const creditsNumber = card.querySelector('.credits-number');
+    if (progressFill && creditsNumber) {
+      // Reset animations
+      progressFill.style.animation = 'none';
+      creditsNumber.style.animation = 'none';
+      
+      // Force reflow
+      progressFill.offsetHeight;
+      creditsNumber.offsetHeight;
+      
+      // Start animations
+      progressFill.style.animation = 'fillProgress 2s ease-out 0.5s forwards';
+      creditsNumber.style.animation = 'countUp 2s ease-out';
+    }
+  }
+
+  animateExtensibility(card) {
+    const demoArrow = card.querySelector('.resize-arrow');
+    if (demoArrow) {
+      demoArrow.style.animation = 'none';
+      demoArrow.offsetHeight;
+      demoArrow.style.animation = 'arrowMove 2s ease-in-out infinite';
+    }
+  }
+
+  nextCard() {
+    if (this.currentCard < this.totalCards - 1) {
+      this.showCard(this.currentCard + 1);
+    } else {
+      this.completeOnboarding();
+    }
+  }
+
+  prevCard() {
+    if (this.currentCard > 0) {
+      this.showCard(this.currentCard - 1);
+    }
+  }
+
+  async completeOnboarding() {
+    this.isOnboardingComplete = true;
+    await chrome.storage.local.set({ onboardingCompleted: true });
+    showChatInterface();
+  }
+}
+
+// Initialize onboarding or show chat interface
+async function initializeOnboarding(sidebar) {
+  const result = await chrome.storage.local.get(['onboardingCompleted']);
+  
+  if (result.onboardingCompleted) {
+    // User has already seen onboarding, show chat interface
+    showChatInterface();
+  } else {
+    // First time user, show onboarding
+    setTimeout(() => {
+      const onboardingManager = new OnboardingManager(sidebar);
+      sidebar._onboardingManager = onboardingManager;
+      
+      // Show first card
+      onboardingManager.showCard(0);
+    }, 100);
+  }
 }
 
 function addSidebarEventListeners(sidebar, isConnected) {
@@ -1748,14 +2015,11 @@ function addSidebarEventListeners(sidebar, isConnected) {
   }
   
   if (isConnected) {
-    // Check if this is the welcome page or chat interface
-    const startBtn = sidebar.querySelector('#saai-start-btn');
-    if (startBtn) {
-      // This is the welcome page - add start button listener
-      startBtn.addEventListener('click', () => {
-        debugLog('Start button clicked');
-        showChatInterface();
-      });
+    // Check if this is the onboarding container
+    const onboardingContainer = sidebar.querySelector('#onboarding-container');
+    if (onboardingContainer) {
+      // Initialize onboarding system
+      initializeOnboarding(sidebar);
     } else {
       // This is the chat interface - add chat listeners
       // Send button

@@ -1,7 +1,6 @@
 /* Sa.AI Gmail Assistant - Chic Professional Design */
 
-/* Import Inter Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* System Font Stack - No External Dependencies */
 
 /* CSS Variables for consistent theming */
 :root {
@@ -33,7 +32,7 @@
   border-left: 1px solid var(--saai-border) !important;
   display: flex !important;
   flex-direction: column !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
   transition: var(--saai-transition) !important;
@@ -149,7 +148,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -175,7 +174,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .saai-close-btn:hover {
@@ -346,7 +345,7 @@
   border: 1px solid var(--saai-border);
   border-radius: var(--saai-border-radius);
   font-size: 14px;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: var(--saai-background);
   color: var(--saai-text-primary);
   transition: var(--saai-transition);
@@ -372,7 +371,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -460,7 +459,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -558,7 +557,7 @@
   font-weight: 500;
   z-index: 10003;
   animation: slideInRight 0.3s ease-out;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   box-shadow: var(--saai-shadow-lg);
 }
 
@@ -879,7 +878,7 @@
   word-break: break-word;
   line-height: 1.4;
   font-weight: 500;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   /* Match generic td padding to avoid extra visual gap */
   padding: 10px 8px;
   vertical-align: top;
@@ -891,7 +890,7 @@
   font-size: 12px;
   color: var(--saai-text-secondary);
   font-weight: 600;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   /* Centering is now handled by the column selector above */
 }
 
@@ -930,7 +929,7 @@
   cursor: pointer;
   margin-top: 16px;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: block;
   width: 100%;
   text-transform: uppercase;
@@ -1015,7 +1014,7 @@ body .AD[role="dialog"] {
   cursor: pointer;
   opacity: 0.8;
   transition: opacity 0.3s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   animation: fadeInOut 2s ease-in-out infinite;
 }
 
@@ -1099,7 +1098,7 @@ body .AD[role="dialog"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .task-modal-close-btn:hover {
@@ -1128,7 +1127,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   width: 100%;
   margin-top: 16px;
 }
@@ -1188,7 +1187,7 @@ body .AD[role="dialog"] {
   flex: 1;
   font-size: 14px;
   color: var(--saai-text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .task-priority {
@@ -1197,7 +1196,7 @@ body .AD[role="dialog"] {
   padding: 2px 6px;
   border-radius: 4px;
   text-transform: uppercase;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .task-priority.high {
@@ -1227,7 +1226,7 @@ body .AD[role="dialog"] {
   justify-content: center;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .task-delete-btn:hover {
@@ -1269,7 +1268,7 @@ body .AD[role="dialog"] {
   border-radius: var(--saai-border-radius);
   padding: 8px 12px;
   font-size: 14px;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: var(--saai-background);
   color: var(--saai-text-primary);
 }
@@ -1298,6 +1297,552 @@ body .AD[role="dialog"] {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* === ONBOARDING CARDS SYSTEM === */
+
+.onboarding-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--saai-background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Progress Dots */
+.progress-dots {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.2);
+  border: 2px solid rgba(15, 23, 42, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.dot:hover {
+  background: rgba(15, 23, 42, 0.3);
+  transform: scale(1.1);
+}
+
+.dot.active {
+  background: var(--saai-primary);
+  border-color: var(--saai-primary);
+}
+
+.dot.active::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid var(--saai-primary);
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: pulse 2s infinite;
+}
+
+/* Skip Button */
+.skip-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: transparent;
+  border: 2px solid var(--saai-primary);
+  color: var(--saai-primary);
+  border-radius: 20px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.skip-btn:hover {
+  background: var(--saai-primary);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--saai-shadow-lg);
+}
+
+/* Onboarding Cards */
+.onboarding-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.3);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateX(100px) scale(0.95);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--saai-shadow-lg);
+}
+
+.onboarding-card.active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.onboarding-card.prev {
+  opacity: 0;
+  transform: translateX(-100px) scale(0.95);
+}
+
+.card-content {
+  text-align: center;
+  padding: 40px;
+  max-width: 400px;
+  color: var(--saai-text-primary);
+}
+
+.card-content h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: var(--saai-text-primary);
+  line-height: 1.2;
+}
+
+.card-content p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--saai-text-secondary);
+  margin-bottom: 24px;
+}
+
+/* Logo Styling */
+.saai-logo-container {
+  position: relative;
+  margin-bottom: 32px;
+}
+
+.saai-logo-main {
+  position: relative;
+  display: inline-block;
+}
+
+.saai-logo-img {
+  background: white;
+  padding: 12px;
+  border-radius: 16px;
+  box-shadow: var(--saai-shadow-lg);
+  object-fit: contain;
+  max-width: 100%;
+}
+
+.saai-logo-img-small {
+  /* No background for chat interface logo */
+  object-fit: contain;
+  max-width: 100%;
+}
+
+.confetti-animation {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  pointer-events: none;
+}
+
+.confetti-animation::before,
+.confetti-animation::after {
+  content: '✨';
+  position: absolute;
+  font-size: 24px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.confetti-animation::before {
+  top: 10%;
+  left: 10%;
+  animation-delay: 0s;
+}
+
+.confetti-animation::after {
+  top: 20%;
+  right: 10%;
+  animation-delay: 1.5s;
+}
+
+/* Features Carousel */
+.features-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(248, 250, 252, 0.8);
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.5);
+  transition: all 0.3s ease;
+  animation: slideInUp 0.6s ease-out;
+  animation-fill-mode: both;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--saai-shadow-lg);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.feature-item:hover .feature-number {
+  transform: scale(1.1);
+  color: var(--saai-primary-light);
+}
+
+.feature-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  background: none;
+  color: var(--saai-primary);
+  border: none;
+  font-weight: 700;
+  font-size: 24px;
+  flex-shrink: 0;
+  position: relative;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  text-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
+  transition: all 0.3s ease;
+}
+
+.feature-number::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--saai-primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: numberGlow 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.feature-text {
+  flex: 1;
+  text-align: left;
+}
+
+.feature-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--saai-text-primary);
+  margin-bottom: 3px;
+}
+
+.feature-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--saai-text-primary);
+  margin-bottom: 3px;
+}
+
+/* Make all text black on features card */
+.onboarding-card[data-card="1"] .feature-text * {
+  color: var(--saai-text-primary) !important;
+}
+
+.feature-text small {
+  font-size: 11px;
+  color: var(--saai-text-primary);
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+/* Credits Display */
+.credits-display {
+  margin: 32px 0;
+}
+
+.credits-counter {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.credits-number {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--saai-primary);
+  animation: countUp 2s ease-out;
+}
+
+.credits-label {
+  font-size: 18px;
+  color: var(--saai-text-primary);
+  font-weight: 600;
+}
+
+.credits-progress {
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: rgba(15, 23, 42, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, var(--saai-primary-light));
+  border-radius: 4px;
+  width: 0%;
+  animation: fillProgress 2s ease-out 0.5s forwards;
+}
+
+.credits-note {
+  font-size: 16px;
+  color: var(--saai-text-primary);
+  font-weight: 500;
+  margin-top: 16px;
+}
+
+/* Extensibility Demo */
+.extensibility-demo {
+  margin: 32px 0;
+}
+
+.demo-border {
+  position: relative;
+  width: 200px;
+  height: 100px;
+  margin: 0 auto;
+  border: 2px dashed var(--saai-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.resize-arrow {
+  font-size: 24px;
+  color: var(--saai-primary);
+  animation: arrowMove 2s ease-in-out infinite;
+}
+
+.demo-border p {
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  color: var(--saai-text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Privacy Shield */
+.privacy-shield {
+  margin-bottom: 24px;
+}
+
+.shield-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.privacy-points {
+  text-align: left;
+  margin: 24px 0;
+}
+
+.privacy-points p {
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  padding-left: 8px;
+}
+
+.privacy-points strong {
+  color: var(--saai-primary);
+}
+
+/* Launch Animation */
+.launch-animation {
+  margin-bottom: 32px;
+}
+
+.chat-bubble {
+  font-size: 48px;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+/* Card Buttons */
+.card-btn {
+  background: var(--saai-primary);
+  color: white;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--saai-shadow);
+}
+
+.card-btn:hover {
+  background: var(--saai-primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--saai-shadow-lg);
+}
+
+.launch-btn {
+  background: linear-gradient(135deg, #10b981, var(--saai-primary-light));
+  font-size: 18px;
+  padding: 16px 32px;
+}
+
+/* === ONBOARDING ANIMATIONS === */
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes countUp {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fillProgress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 85%;
+  }
+}
+
+@keyframes arrowMove {
+  0%, 100% {
+    transform: translateX(0px);
+  }
+  50% {
+    transform: translateX(10px);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes numberGlow {
+  0%, 100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  50% {
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+/* Loading states and user experience improvements */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.offline-indicator {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #fecaca;
+  z-index: 10005;
+  animation: slideInRight 0.3s ease-out;
 }
 
 /* Task Error State */
@@ -1330,7 +1875,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin-top: 16px;
 }
 
@@ -1356,7 +1901,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1379,7 +1924,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   flex: 1;
 }
 
@@ -1395,7 +1940,7 @@ body .AD[role="dialog"] {
   background: var(--saai-accent);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .task-priority-select {
@@ -1403,7 +1948,7 @@ body .AD[role="dialog"] {
   border-radius: var(--saai-border-radius);
   padding: 8px;
   font-size: 14px;
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background: var(--saai-background);
   color: var(--saai-text-primary);
   min-width: 80px;
@@ -1419,7 +1964,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1445,10 +1990,10 @@ body .AD[role="dialog"] {
 }
 
 .chat-welcome-icon {
-  width: 64px;
-  height: 64px;
-  background: var(--saai-accent);
-  border-radius: 50%;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1491,7 +2036,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1626,7 +2171,7 @@ body .AD[role="dialog"] {
   font-weight: 500;
   cursor: pointer;
   transition: var(--saai-transition);
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1749,7 +2294,7 @@ body .AD[role="dialog"] {
 
 /* Container for formatted responses */
 .formatted-response {
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.6;
   color: var(--saai-text-primary);
   background: var(--saai-background);
@@ -2084,9 +2629,37 @@ body .AD[role="dialog"] {
 
 /* Ensure consistent font across all table cells */
 .email-table td {
-  font-family: 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   font-size: 12px;
   line-height: 1.4;
+}
+
+/* Gmail Layout Utility Classes */
+.saai-gmail-content-sidebar-open {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.saai-gmail-content-sidebar-closed {
+  flex: 1 1 100vw !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  min-width: 100vw !important;
+  box-sizing: border-box !important;
+  overflow: auto !important;
+}
+
+.saai-body-overflow-hidden {
+  overflow-x: hidden !important;
+}
+
+.saai-body-overflow-auto {
+  overflow-x: auto !important;
 }
 
 /* Specific styling for different cell types while maintaining consistency */
@@ -2153,4 +2726,497 @@ body .AD[role="dialog"] {
 .email-table th {
   vertical-align: middle;
   padding: 12px 8px;
+}
+
+/* === ONBOARDING STYLES === */
+.onboarding-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--saai-background);
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-dots {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--saai-border);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  position: relative;
+}
+
+.dot:hover {
+  background: var(--saai-primary-light);
+  transform: scale(1.1);
+  border: 2px solid var(--saai-primary-light);
+}
+
+.dot.active {
+  background: var(--saai-primary);
+  transform: scale(1.3);
+  box-shadow: 0 0 12px rgba(15, 23, 42, 0.4);
+  border: 2px solid var(--saai-primary);
+}
+
+.dot.active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: white;
+  opacity: 1;
+}
+
+.skip-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: transparent;
+  border: 2px solid var(--saai-primary);
+  color: var(--saai-primary);
+  border-radius: 20px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--saai-transition);
+  z-index: 20;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.skip-btn:hover {
+  background: var(--saai-primary);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+.onboarding-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateX(100px);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--saai-background);
+}
+
+.onboarding-card.active {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.onboarding-card.prev {
+  transform: translateX(-100px);
+  opacity: 0;
+}
+
+.card-content {
+  text-align: center;
+  padding: 40px 30px;
+  color: var(--saai-text-primary);
+  max-width: 280px;
+}
+
+.card-content h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--saai-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.card-content p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  color: var(--saai-text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.card-btn {
+  background: var(--saai-primary);
+  border: none;
+  color: white;
+  border-radius: var(--saai-border-radius);
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--saai-transition);
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.card-btn:hover {
+  background: var(--saai-primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--saai-shadow-lg);
+}
+
+.launch-btn {
+  background: #22c55e !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4) !important;
+}
+
+.launch-btn:hover {
+  background: #16a34a !important;
+  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.6) !important;
+}
+
+/* Logo Animation */
+.saai-logo-container {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.saai-logo-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: logoGlow 3s ease-in-out infinite;
+}
+
+.saai-logo-img {
+  background: white;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  object-fit: contain;
+  max-width: 100%;
+}
+
+.saai-logo-img-small {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  object-fit: contain;
+  max-width: 100%;
+}
+
+@keyframes logoGlow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.1));
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.2));
+    transform: scale(1.02);
+  }
+}
+
+.confetti-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.confetti-animation::before,
+.confetti-animation::after {
+  content: '✨';
+  position: absolute;
+  font-size: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.confetti-animation::before {
+  top: 10px;
+  left: 20%;
+  animation-delay: 0s;
+}
+
+.confetti-animation::after {
+  top: 20px;
+  right: 20%;
+  animation-delay: 1.5s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.7; }
+  50% { transform: translateY(-10px) rotate(180deg); opacity: 1; }
+}
+
+/* Features Carousel */
+.features-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--saai-background-secondary);
+  border-radius: var(--saai-border-radius);
+  border: 1px solid var(--saai-border-light);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  animation: slideInLeft 0.8s ease-out forwards;
+}
+
+.feature-item:nth-child(1) { animation-delay: 0.1s; }
+.feature-item:nth-child(2) { animation-delay: 0.2s; }
+.feature-item:nth-child(3) { animation-delay: 0.3s; }
+.feature-item:nth-child(4) { animation-delay: 0.4s; }
+.feature-item:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes slideInLeft {
+  from { 
+    opacity: 0; 
+    transform: translateX(-30px) scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0) scale(1); 
+  }
+}
+
+.feature-item:hover {
+  background: var(--saai-accent);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: var(--saai-primary);
+}
+
+/* Duplicate .feature-number rule removed - using the onboarding section styling instead */
+
+@keyframes ringPulse {
+  0%, 100% { 
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.2;
+  }
+  50% { 
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.4;
+  }
+}
+
+.feature-icon {
+  font-size: 20px;
+  width: 32px;
+  text-align: center;
+}
+
+.feature-text {
+  text-align: left;
+  flex: 1;
+}
+
+.feature-title {
+  color: var(--saai-text-primary);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.feature-subtitle {
+  color: var(--saai-text-primary);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.feature-text small {
+  font-size: 11px;
+  color: var(--saai-text-muted);
+  display: block;
+}
+
+/* Credits Display */
+.credits-display {
+  margin-bottom: 24px;
+}
+
+.credits-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.credits-number {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--saai-primary);
+  animation: countUp 2s ease-out;
+}
+
+@keyframes countUp {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.credits-label {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.credits-progress {
+  width: 100%;
+  max-width: 200px;
+  margin: 0 auto;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--saai-border-light);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--saai-primary);
+  border-radius: 4px;
+  width: 0%;
+  animation: fillProgress 2s ease-out 0.5s forwards;
+}
+
+@keyframes fillProgress {
+  to { width: 100%; }
+}
+
+.credits-note {
+  font-size: 12px;
+  opacity: 0.8;
+  font-style: italic;
+}
+
+/* Extensibility Demo */
+.extensibility-demo {
+  margin-bottom: 24px;
+}
+
+.demo-border {
+  width: 150px;
+  height: 80px;
+  margin: 0 auto;
+  border: 2px dashed var(--saai-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  animation: borderPulse 2s ease-in-out infinite;
+}
+
+@keyframes borderPulse {
+  0%, 100% { border-color: var(--saai-border); }
+  50% { border-color: var(--saai-primary); }
+}
+
+.resize-arrow {
+  font-size: 24px;
+  animation: arrowMove 2s ease-in-out infinite;
+}
+
+@keyframes arrowMove {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(1.2); }
+}
+
+.demo-border p {
+  font-size: 10px;
+  margin: 8px 0 0 0;
+  opacity: 0.8;
+}
+
+/* Privacy Shield */
+.privacy-shield {
+  margin-bottom: 24px;
+}
+
+.shield-icon {
+  font-size: 48px;
+  animation: shieldGlow 3s ease-in-out infinite;
+}
+
+@keyframes shieldGlow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.1));
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.2));
+    transform: scale(1.05);
+  }
+}
+
+.privacy-points {
+  text-align: left;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.privacy-points p {
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--saai-text-primary);
+}
+
+.privacy-points p:last-child {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 15px;
+}
+
+/* Launch Animation */
+.launch-animation {
+  margin-bottom: 24px;
+}
+
+.chat-bubble {
+  font-size: 48px;
+  animation: bubble 2s ease-in-out infinite;
+}
+
+@keyframes bubble {
+  0%, 100% { 
+    transform: translateY(0) scale(1);
+    opacity: 0.9;
+  }
+  50% { 
+    transform: translateY(-10px) scale(1.1);
+    opacity: 1;
+  }
 }
