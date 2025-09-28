@@ -1,0 +1,31 @@
+{
+  "name": "saai-gmail-extension",
+  "version": "2.1.0",
+  "description": "Sa.AI Gmail Assistant - Chrome Extension with AI-powered inbox management",
+  "main": "background.js",
+  "scripts": {
+    "build": "echo 'Chrome extension - no build needed'",
+    "start": "echo 'Chrome extension - load in browser'",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [
+    "chrome-extension",
+    "gmail",
+    "ai-assistant",
+    "email-management",
+    "onboarding"
+  ],
+  "author": "Devang",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {},
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Devangp999/saai.chat.v1.git"
+  },
+  "browser": true,
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
