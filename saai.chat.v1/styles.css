@@ -4,7 +4,14 @@
 
 /* CSS Variables for consistent theming */
 :root {
+  /* Typography - Consistent font families */
+  --saai-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --saai-font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  
+  /* Layout */
   --saai-sidebar-width: 320px;
+  
+  /* Colors */
   --saai-primary: #0f172a;
   --saai-primary-light: #1e293b;
   --saai-text-primary: #0f172a;
@@ -16,6 +23,8 @@
   --saai-border-light: #f1f5f9;
   --saai-accent: #f1f5f9;
   --saai-accent-hover: #e2e8f0;
+  
+  /* Effects */
   --saai-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   --saai-shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.1);
   --saai-border-radius: 12px;
@@ -93,6 +102,338 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* === COLLAPSIBLE SETTINGS SIDEBAR === */
+.saai-settings-sidebar {
+  position: fixed !important;
+  right: -320px !important;
+  top: 100px !important;
+  width: 320px !important;
+  height: 420px !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px 0 0 16px !important;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transition: right 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+  z-index: 10005 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+  overflow: hidden !important;
+}
+
+.saai-settings-sidebar.open {
+  right: 0px !important;
+  box-shadow: 
+    0 35px 60px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+#saai-settings-trigger {
+  position: fixed !important;
+  right: 0px !important;
+  top: 120px !important;
+  width: 10px !important;
+  height: 80px !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  border-radius: 6px 0 0 6px !important;
+  cursor: pointer !important;
+  transition: transform 0.25s ease, width 0.25s ease, opacity 0.25s ease !important;
+  z-index: 10006 !important;
+  opacity: 0.8 !important;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.25) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  mix-blend-mode: normal !important;
+}
+
+#saai-settings-trigger::before {
+  content: '⚙' !important;
+  position: static !important;
+  transform: none !important;
+  font-size: 16px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  transition: opacity 0.25s ease !important;
+  opacity: 0 !important;
+}
+
+#saai-settings-trigger:hover {
+  width: 32px !important;
+  border-radius: 12px 0 0 12px !important;
+  opacity: 1 !important;
+  box-shadow: -6px 0 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+#saai-settings-trigger:hover::before {
+  opacity: 1 !important;
+}
+
+.saai-settings-sidebar.open ~ #saai-settings-trigger {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide trigger icon when sidebar is open */
+.saai-settings-sidebar.open ~ #saai-settings-trigger::before {
+  opacity: 0 !important;
+}
+
+/* Disable hover effects when sidebar is open */
+.saai-settings-sidebar.open ~ #saai-settings-trigger:hover::before {
+  opacity: 0 !important;
+}
+
+/* Hide icons by default */
+#saai-settings-trigger::before,
+#saai-settings-trigger::after {
+  opacity: 0 !important;
+  transition: opacity 0.3s ease !important;
+}
+
+/* Show icons on hover */
+#saai-settings-trigger:hover::before,
+#saai-settings-trigger:hover::after {
+  opacity: 1 !important;
+}
+
+#saai-settings-trigger::before {
+  content: '⚙' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  font-size: 18px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Removed dustbin icon completely */
+
+/* Individual clickable icon areas */
+.trigger-icon {
+  position: absolute !important;
+  width: 100% !important;
+  height: 50% !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  transition: all 0.3s ease !important;
+  border-radius: 8px !important;
+}
+
+.settings-icon {
+  top: 0 !important;
+  height: 100% !important;
+}
+
+#saai-settings-trigger:hover .trigger-icon {
+  opacity: 1 !important;
+}
+
+.trigger-icon:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  transform: scale(1.1) !important;
+}
+
+.saai-settings-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  border-radius: 16px 0 0 0 !important;
+  backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.saai-settings-title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+
+.saai-settings-close {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 8px !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.saai-settings-close:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.05) !important;
+}
+
+.saai-settings-content {
+  flex: 1 !important;
+  padding: 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(5px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.saai-settings-content::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.saai-settings-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 3px !important;
+}
+
+.saai-settings-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 3px !important;
+}
+
+.saai-settings-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+.saai-settings-btn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 12px 14px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 8px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  text-align: left !important;
+  width: 100% !important;
+  font-family: inherit !important;
+  box-shadow: 
+    0 1px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.saai-settings-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.saai-settings-btn-icon {
+  width: 20px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 16px !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.saai-settings-btn-text {
+  flex: 1 !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.saai-settings-btn-desc {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  margin-top: 2px !important;
+}
+
+/* Delete button - danger style */
+.saai-settings-btn.danger {
+  background: rgba(254, 242, 242, 0.8) !important;
+  border-color: rgba(252, 165, 165, 0.6) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.saai-settings-btn.danger:hover {
+  background: rgba(254, 226, 226, 0.9) !important;
+  border-color: rgba(248, 113, 113, 0.8) !important;
+  box-shadow: 
+    0 8px 25px rgba(220, 38, 38, 0.15),
+    0 0 0 1px rgba(248, 113, 113, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+.saai-settings-btn.danger .saai-settings-btn-icon {
+  color: #dc2626 !important;
+}
+
+.saai-settings-btn.danger .saai-settings-btn-text {
+  color: #dc2626 !important;
+}
+
+/* Usage progress bar */
+.usage-progress {
+  margin-top: 12px !important;
+  width: 100% !important;
+}
+
+.usage-bar {
+  width: 100% !important;
+  height: 8px !important;
+  background: rgba(241, 245, 249, 0.8) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+  backdrop-filter: blur(5px) !important;
+}
+
+.usage-fill {
+  height: 100% !important;
+  background: linear-gradient(90deg, 
+    rgba(34, 197, 94, 0.9) 0%, 
+    rgba(22, 163, 74, 0.9) 100%
+  ) !important;
+  border-radius: 6px !important;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 
+    0 0 8px rgba(34, 197, 94, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.usage-text {
+  font-size: 12px !important;
+  color: rgba(100, 116, 139, 0.9) !important;
+  margin-top: 6px !important;
+  text-align: center !important;
+  font-weight: 500 !important;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5) !important;
 }
 
 /* Header - Clean Professional Design */
@@ -213,7 +554,7 @@
 
 /* Messages - Clean Professional Styling */
 .message {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   animation: messageSlideIn 0.3s ease-out;
 }
 
@@ -229,29 +570,40 @@
 }
 
 .message-content {
-  max-width: 90%;
-  padding: 12px 16px;
-  border-radius: var(--saai-border-radius);
-  font-size: 14px;
-  line-height: 1.5;
+  max-width: clamp(260px, 60vw, 420px);
+  padding: 0;
+  border-radius: 0;
+  font-size: 15px;
+  line-height: 1.6;
   word-wrap: break-word;
   position: relative;
-  box-shadow: var(--saai-shadow);
-  transition: var(--saai-transition);
-  border: 1px solid var(--saai-border-light);
+  box-shadow: none;
+  border: none;
 }
 
 .user-message {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .user-message .message-content {
-  background: var(--saai-primary);
-  color: white;
-  border-bottom-right-radius: 6px;
-  align-self: flex-end;
-  box-shadow: var(--saai-shadow-lg);
+  background: #0f172a;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 18px 18px 4px 18px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+  max-width: clamp(200px, 45vw, 320px);
+  font-size: 14px;
+}
+
+.user-message-timestamp {
+  margin-top: 4px;
+  margin-right: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: right;
+  font-weight: 500;
 }
 
 .bot-message {
@@ -260,10 +612,140 @@
 }
 
 .bot-message .message-content {
-  background: var(--saai-background-secondary);
+  background: transparent;
   color: var(--saai-text-primary);
-  border-bottom-left-radius: 6px;
-  border: 1px solid var(--saai-border);
+}
+
+/* Timestamp is now only shown within modern cards */
+
+.saai-modern-card-wrapper {
+  max-width: clamp(240px, 50vw, 340px);
+  display: flex;
+  justify-content: flex-start;
+}
+
+.saai-modern-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px 20px;
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.saai-modern-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.saai-modern-card-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.saai-modern-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.saai-modern-card-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #1f2937;
+}
+
+.saai-modern-card-dash {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--saai-primary);
+  text-shadow: 0 0 8px rgba(15, 23, 42, 0.3);
+  animation: dashGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes dashGlow {
+  0% {
+    text-shadow: 0 0 8px rgba(15, 23, 42, 0.3);
+  }
+  100% {
+    text-shadow: 0 0 12px rgba(15, 23, 42, 0.5), 0 0 16px rgba(15, 23, 42, 0.2);
+  }
+}
+
+.saai-modern-card-text {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.saai-modern-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.saai-modern-card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.saai-modern-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(226, 232, 240, 0.65);
+  transition: all 0.2s ease;
+}
+
+.saai-modern-card-action:hover {
+  background: rgba(96, 165, 250, 0.25);
+  transform: translateY(-1px);
+}
+
+.saai-modern-card-time {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Simple card for conversational responses */
+.saai-simple-card {
+  gap: 12px;
+}
+
+.saai-simple-card-text {
+  font-size: 15px;
+  line-height: 1.4;
+  color: #1f2937;
+}
+
+.formatted-response {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  line-height: 1.6;
+  color: var(--saai-text-primary);
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 22px 24px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
 }
 
 .temporary .message-content {
@@ -273,25 +755,186 @@
 
 /* Chat Input Container */
 .chat-input-container {
-  padding: 16px 20px;
+  padding: 20px;
   border-top: 1px solid var(--saai-border);
-  background: var(--saai-background);
+  background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
   display: flex;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.saai-voice-btn,
-.saai-voice-exit-btn {
-  background: #0f172a;
-  color: #fff;
-  border: 1px solid var(--saai-border);
-  border-radius: var(--saai-border-radius);
-  padding: 8px 10px;
-  font-size: 12px;
-  cursor: pointer;
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.saai-voice-exit-btn { background: #334155; }
+
+.chat-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-input-wrapper.compact {
+  max-width: 360px;
+}
+
+.chat-input-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#chat-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  font-family: var(--saai-font-family);
+  background: transparent;
+  color: var(--saai-text-primary);
+  outline: none;
+  resize: none;
+  height: 40px;
+  max-height: 100px;
+  overflow-y: hidden;
+  transition: height 0.2s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+#chat-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+#chat-input.expanded {
+  overflow-y: auto;
+}
+
+.saai-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  background: #0f172a;
+  color: white;
+}
+
+.saai-action-btn svg {
+  stroke: currentColor;
+}
+
+.saai-action-btn:hover {
+  background: #050b1a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.4);
+}
+
+.saai-action-btn:active {
+  transform: translateY(0);
+}
+
+#voice-exit-btn {
+  align-self: flex-start;
+}
+
+/* Summary with Sources Styling */
+.saai-summary-section {
+  margin-bottom: 8px;
+}
+
+.saai-summary-header {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--saai-text-primary);
+}
+
+.saai-summary-text {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--saai-text-primary);
+}
+
+.saai-sources-section {
+  margin-top: 16px;
+}
+
+.saai-sources-header {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--saai-text-primary);
+}
+
+.saai-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saai-source-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.saai-source-text {
+  flex: 1;
+}
+
+.saai-source-link {
+  color: var(--saai-primary);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: color 0.2s ease;
+  word-break: break-all;
+}
+
+.saai-source-link:hover {
+  color: #0f172a;
+  text-decoration: underline;
+}
+
+.saai-voice-exit-btn {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.saai-voice-exit-btn:hover {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+  transform: translateY(-1px);
+}
 
 .saai-voice-indicator {
   margin: 8px 20px 0;
@@ -338,58 +981,6 @@
   color: #fff;
   border-color: #2563eb;
 }
-
-#chat-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid var(--saai-border);
-  border-radius: var(--saai-border-radius);
-  font-size: 14px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: var(--saai-background);
-  color: var(--saai-text-primary);
-  transition: var(--saai-transition);
-  outline: none;
-}
-
-#chat-input:focus {
-  border-color: var(--saai-primary);
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
-}
-
-#chat-input::placeholder {
-  color: var(--saai-text-muted);
-}
-
-#send-btn {
-  background: var(--saai-primary);
-  color: white;
-  border: none;
-  border-radius: var(--saai-border-radius);
-  padding: 12px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--saai-transition);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  height: 44px;
-}
-
-#send-btn:hover {
-  background: var(--saai-primary-light);
-  transform: translateY(-1px);
-  box-shadow: var(--saai-shadow-lg);
-}
-
-#send-btn:active {
-  transform: translateY(0);
-}
-
-
 
 /* Connect Prompt - Welcome Screen */
 .saai-connect-prompt {
@@ -1535,7 +2126,7 @@ body .AD[role="dialog"] {
   font-size: 24px;
   flex-shrink: 0;
   position: relative;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   text-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
   transition: all 0.3s ease;
 }
@@ -1662,7 +2253,7 @@ body .AD[role="dialog"] {
 .resize-arrow {
   font-size: 24px;
   color: var(--saai-primary);
-  animation: arrowMove 2s ease-in-out infinite;
+  animation: arrowMove 2s ease-in-out infinite alternate;
 }
 
 .demo-border p {
@@ -2290,9 +2881,67 @@ body .AD[role="dialog"] {
   color: var(--saai-text-primary);
 }
 
-/* === FORMATTED RESPONSE STYLES === */
+/* === ENHANCED MESSAGE FORMATTING === */
 
-/* Container for formatted responses */
+/* Sa.AI Thinking Animation */
+.saai-thinking {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 12px 16px !important;
+  background: var(--saai-background-secondary) !important;
+  border-radius: var(--saai-border-radius) !important;
+  border: 1px solid var(--saai-border) !important;
+  margin-bottom: 16px !important;
+  animation: thinkingPulse 2s ease-in-out infinite !important;
+}
+
+.saai-thinking-dots {
+  display: flex !important;
+  gap: 4px !important;
+}
+
+.saai-thinking-dot {
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--saai-primary) !important;
+  border-radius: 50% !important;
+  animation: thinkingDot 1.4s ease-in-out infinite !important;
+}
+
+.saai-thinking-dot:nth-child(1) { animation-delay: 0s !important; }
+.saai-thinking-dot:nth-child(2) { animation-delay: 0.2s !important; }
+.saai-thinking-dot:nth-child(3) { animation-delay: 0.4s !important; }
+
+.saai-thinking-text {
+  font-weight: 500 !important;
+  color: var(--saai-text-primary) !important;
+  font-size: 14px !important;
+}
+
+@keyframes thinkingPulse {
+  0%, 100% { 
+    background: var(--saai-background-secondary);
+    border-color: var(--saai-border);
+  }
+  50% { 
+    background: var(--saai-accent);
+    border-color: var(--saai-primary);
+  }
+}
+
+@keyframes thinkingDot {
+  0%, 80%, 100% { 
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% { 
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* Enhanced Pointer/List Formatting */
 .formatted-response {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.6;
@@ -2301,6 +2950,134 @@ body .AD[role="dialog"] {
   border-radius: var(--saai-border-radius);
   overflow: hidden;
 }
+
+.formatted-response ul {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 16px 0 !important;
+}
+
+.formatted-response li {
+  position: relative !important;
+  padding: 12px 16px 12px 40px !important;
+  margin-bottom: 8px !important;
+  background: var(--saai-background-secondary) !important;
+  border-radius: var(--saai-border-radius) !important;
+  border-left: 4px solid var(--saai-primary) !important;
+  transition: all 0.2s ease !important;
+  animation: slideInUp 0.3s ease-out !important;
+}
+
+.formatted-response li:hover {
+  background: var(--saai-accent) !important;
+  transform: translateX(4px) !important;
+  box-shadow: var(--saai-shadow) !important;
+}
+
+.formatted-response li::before {
+  content: "•" !important;
+  position: absolute !important;
+  left: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: var(--saai-primary) !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
+}
+
+.formatted-response ol {
+  list-style: none !important;
+  counter-reset: list-counter !important;
+  padding-left: 0 !important;
+  margin: 16px 0 !important;
+}
+
+.formatted-response ol li {
+  counter-increment: list-counter !important;
+  position: relative !important;
+  padding: 12px 16px 12px 50px !important;
+  margin-bottom: 8px !important;
+  background: var(--saai-background-secondary) !important;
+  border-radius: var(--saai-border-radius) !important;
+  border-left: 4px solid var(--saai-primary) !important;
+  transition: all 0.2s ease !important;
+  animation: slideInUp 0.3s ease-out !important;
+}
+
+.formatted-response ol li::before {
+  content: counter(list-counter) !important;
+  position: absolute !important;
+  left: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 24px !important;
+  height: 24px !important;
+  background: var(--saai-primary) !important;
+  color: white !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+}
+
+.formatted-response ol li:hover {
+  background: var(--saai-accent) !important;
+  transform: translateX(4px) !important;
+  box-shadow: var(--saai-shadow) !important;
+}
+
+/* Enhanced paragraph formatting */
+.formatted-response p {
+  margin: 16px 0 !important;
+  padding: 12px 16px !important;
+  background: var(--saai-background-secondary) !important;
+  border-radius: var(--saai-border-radius) !important;
+  border-left: 3px solid var(--saai-border) !important;
+  line-height: 1.6 !important;
+}
+
+/* Enhanced headers */
+.formatted-response h1,
+.formatted-response h2,
+.formatted-response h3,
+.formatted-response h4 {
+  color: var(--saai-primary) !important;
+  font-weight: 600 !important;
+  margin: 24px 0 16px 0 !important;
+  padding-bottom: 8px !important;
+  border-bottom: 2px solid var(--saai-border-light) !important;
+}
+
+/* Enhanced code blocks */
+.formatted-response code {
+  background: var(--saai-accent) !important;
+  color: var(--saai-primary) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 13px !important;
+}
+
+.formatted-response pre {
+  background: var(--saai-background-secondary) !important;
+  border: 1px solid var(--saai-border) !important;
+  border-radius: var(--saai-border-radius) !important;
+  padding: 16px !important;
+  overflow-x: auto !important;
+  margin: 16px 0 !important;
+}
+
+.formatted-response pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* === FORMATTED RESPONSE STYLES === */
+
+/* Container for formatted responses */
 
 /* Response headers (markdown ### headers) */
 .response-header {
@@ -2403,20 +3180,36 @@ body .AD[role="dialog"] {
 
 /* Numbered items */
 .numbered-item {
-  display: flex;
-  margin: 12px 0;
-  padding: 12px 16px;
-  background: var(--saai-background-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--saai-border-light);
+  display: flex !important;
+  align-items: flex-start !important;
+  margin: 12px 0 !important;
+  padding: 12px 16px !important;
+  background: var(--saai-background-secondary) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--saai-border-light) !important;
+  border-left: 4px solid var(--saai-primary) !important;
+  transition: all 0.2s ease !important;
+}
+
+.numbered-item:hover {
+  background: var(--saai-accent) !important;
+  transform: translateX(4px) !important;
+  box-shadow: var(--saai-shadow) !important;
 }
 
 .item-number {
-  font-weight: 600;
-  color: var(--saai-primary);
-  margin-right: 12px;
-  min-width: 24px;
-  font-size: 14px;
+  font-weight: 600 !important;
+  color: var(--saai-primary) !important;
+  margin-right: 12px !important;
+  min-width: 24px !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+}
+
+.item-content {
+  flex: 1 !important;
+  line-height: 1.5 !important;
+  color: var(--saai-text-primary) !important;
 }
 
 .item-content {
@@ -2428,13 +3221,28 @@ body .AD[role="dialog"] {
 
 /* List items */
 .list-item {
-  margin: 6px 0;
-  padding: 6px 12px;
-  background: var(--saai-background-secondary);
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--saai-text-primary);
-  border-left: 3px solid var(--saai-border);
+  margin: 8px 0 !important;
+  padding: 10px 16px !important;
+  background: var(--saai-background-secondary) !important;
+  border-radius: 6px !important;
+  font-size: 13px !important;
+  color: var(--saai-text-primary) !important;
+  border-left: 3px solid var(--saai-primary) !important;
+  transition: all 0.2s ease !important;
+  position: relative !important;
+}
+
+.list-item:hover {
+  background: var(--saai-accent) !important;
+  transform: translateX(4px) !important;
+  box-shadow: var(--saai-shadow) !important;
+}
+
+.list-item::before {
+  content: "•" !important;
+  color: var(--saai-primary) !important;
+  font-weight: bold !important;
+  margin-right: 8px !important;
 }
 
 /* Citations and references */
