@@ -80,6 +80,679 @@ function showLoadingState(element, message = 'Loading...') {
   }
 }
 
+// Enhanced thinking indicator with Sa.AI branding
+function showThinkingIndicator(chatArea) {
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.className = 'message bot-message temporary';
+  thinkingDiv.innerHTML = `
+    <div class="message-content saai-thinking">
+      <div class="saai-thinking-dots">
+        <div class="saai-thinking-dot"></div>
+        <div class="saai-thinking-dot"></div>
+        <div class="saai-thinking-dot"></div>
+      </div>
+      <span class="saai-thinking-text">Sa.AI is thinking...</span>
+    </div>
+  `;
+  
+  chatArea.appendChild(thinkingDiv);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  
+  return thinkingDiv;
+}
+
+// Utility to safely escape HTML entities in dynamic text
+function escapeHtml(str) {
+  if (typeof str !== 'string') {
+    return str;
+  }
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatCardTimestamp(date = new Date()) {
+  try {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (error) {
+    debugError('Failed to format timestamp for card', error);
+    return '';
+  }
+}
+
+function extractPlainTextContent(value) {
+  if (!value) {
+    return '';
+  }
+  const temp = document.createElement('div');
+  temp.innerHTML = value;
+  return (temp.textContent || temp.innerText || '').trim();
+}
+
+function parseModernSummaryCard(text) {
+  if (!text || typeof text !== 'string') {
+    return null;
+  }
+
+  const normalized = text.replace(/\r/g, '\n').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  // Check for structured email summary patterns
+  const hasSubjectPattern = /(?:^|\n)\s*\d+\.\s*Subject:\s*/i.test(normalized);
+  const hasSenderPattern = /(?:^|\n)\s*(?:—|[-*])\s*Sender:\s*/i.test(normalized);
+  const hasDatePattern = /(?:^|\n)\s*(?:—|[-*])\s*Date:\s*/i.test(normalized);
+  
+  // If it looks like an email summary with subjects, parse it specially
+  if (hasSubjectPattern || (hasSenderPattern && hasDatePattern)) {
+    return parseEmailSummaryContent(normalized);
+  }
+
+  // Original parsing logic for other structured content
+  const lines = normalized.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    return null;
+  }
+
+  const potentialTitle = lines[0];
+  if (potentialTitle.length < 6 || potentialTitle.length > 140) {
+    return null;
+  }
+
+  const items = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+
+    const bulletMatch = line.match(/^(?:[-•*]|[✅✔☑✓])\s*(.+)$/);
+    if (bulletMatch && bulletMatch[1].trim().length > 0) {
+      items.push(bulletMatch[1].trim());
+      continue;
+    }
+
+    const numberedMatch = line.match(/^(\d+[\).]?\s*)(.+)$/);
+    if (numberedMatch && numberedMatch[2].trim().length > 0) {
+      items.push(`${numberedMatch[1].trim()} ${numberedMatch[2].trim()}`);
+      continue;
+    }
+
+    const simpleMatch = line.match(/^([0-9]+\s+.+)$/);
+    if (simpleMatch) {
+      items.push(simpleMatch[1].trim());
+      continue;
+    }
+
+    if (/^note[:\-]/i.test(line)) {
+      items.push(line.trim());
+      continue;
+    }
+
+    if (line.length <= 120 && items.length > 0) {
+      const previous = items[items.length - 1];
+      items[items.length - 1] = `${previous} ${line}`.trim();
+    }
+  }
+
+  const filteredItems = items.filter(item => item && item.length > 0).slice(0, 6);
+
+  if (filteredItems.length < 2) {
+    return null;
+  }
+
+  const title = potentialTitle.replace(/\s+$/, '');
+  return { title, items: filteredItems };
+}
+
+function parseEmailSummaryContent(text) {
+  // Split by sentences and common email patterns
+  const items = [];
+  
+  // Split by numbered subjects first
+  const subjectSections = text.split(/(?=\d+\.\s*Subject:)/i);
+  
+  for (const section of subjectSections) {
+    if (!section.trim()) continue;
+    
+    const lines = section.split(/\n+/).map(line => line.trim()).filter(Boolean);
+    
+    for (const line of lines) {
+      // Skip very short lines
+      if (line.length < 10) continue;
+      
+      // Add subjects, senders, dates, reasons, etc.
+      if (/^\d+\.\s*Subject:/i.test(line) || 
+          /^(?:—|[-*])\s*(?:Sender|Date|Reason):/i.test(line) ||
+          /^(?:Sender|Date|Reason):/i.test(line)) {
+        items.push(line);
+      } else if (line.length > 20 && line.length < 300) {
+        // Add substantial content lines
+        items.push(line);
+      }
+    }
+  }
+  
+  // If no structured items found, treat as simple content
+  if (items.length === 0) {
+    const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20);
+    if (sentences.length > 0) {
+      return { title: sentences[0], items: sentences.slice(1, 4) };
+    }
+    return null;
+  }
+  
+  const title = items[0] || 'Email Summary';
+  return { title, items: items.slice(1) };
+}
+
+function parseSummaryWithSources(text) {
+  if (!text || typeof text !== 'string') {
+    return null;
+  }
+  
+  console.log('🔍 Parsing text for sources:', text); // Debug log
+  
+  // Check if text contains any source indicators
+  const hasSourceIndicators = text.includes('Sources:') || 
+                              text.includes('Source:') ||
+                              /\[\d+\]\(https?:\/\//.test(text) ||
+                              text.includes('https://') ||
+                              text.includes('http://');
+  
+  // If no source indicators, not a summary with sources
+  if (!hasSourceIndicators && !text.startsWith('Summary:') && !text.startsWith('Insight:')) {
+    return null;
+  }
+  
+  let summaryText = '';
+  let sourcesText = '';
+  let sources = [];
+  
+  // Try multiple parsing approaches
+  
+  // Approach 1: Split by "Sources:" (most common)
+  if (text.includes('Sources:')) {
+    const parts = text.split(/\s*Sources?:\s*/i);
+    if (parts.length >= 2) {
+      summaryText = parts[0].trim();
+      sourcesText = parts.slice(1).join(' Sources: ').trim();
+      console.log('📝 Split by Sources:', { summaryText, sourcesText });
+    }
+  }
+  // Approach 2: Split by "Source:" (singular)  
+  else if (text.includes('Source:')) {
+    const parts = text.split(/\s*Source:\s*/i);
+    if (parts.length >= 2) {
+      summaryText = parts[0].trim();
+      sourcesText = parts.slice(1).join(' Source: ').trim();
+      console.log('📝 Split by Source:', { summaryText, sourcesText });
+    }
+  }
+  // Approach 3: Extract inline sources from entire text
+  else {
+    summaryText = text;
+    sourcesText = text; // Check entire text for sources
+    console.log('📝 Using entire text for source extraction');
+  }
+  
+  // Clean up summary text prefixes
+  summaryText = summaryText.replace(/^(Summary|Insight):\s*/i, '').trim();
+  
+  // Extract all possible source formats
+  if (sourcesText) {
+    // Format 1: [1](url), [2](url) - Markdown links
+    const markdownLinks = sourcesText.match(/\[(\d+)\]\((https?:\/\/[^)]+)\)/g);
+    if (markdownLinks) {
+      console.log('🔗 Found markdown links:', markdownLinks);
+      markdownLinks.forEach(match => {
+        const linkMatch = match.match(/\[(\d+)\]\((https?:\/\/[^)]+)\)/);
+        if (linkMatch) {
+          sources.push({
+            number: linkMatch[1],
+            url: linkMatch[2]
+          });
+        }
+      });
+    }
+    
+    // Format 2: 1. https://url, 2. https://url - Numbered URLs
+    const numberedUrls = sourcesText.match(/(\d+)\.\s*(https?:\/\/[^\s,]+)/g);
+    if (numberedUrls) {
+      console.log('🔗 Found numbered URLs:', numberedUrls);
+      numberedUrls.forEach(match => {
+        const urlMatch = match.match(/(\d+)\.\s*(https?:\/\/[^\s,]+)/);
+        if (urlMatch) {
+          sources.push({
+            number: urlMatch[1],
+            url: urlMatch[2]
+          });
+        }
+      });
+    }
+    
+    // Format 3: Just URLs with numbers nearby - 1 https://url, 2 https://url
+    const nearbyNumberUrls = sourcesText.match(/(\d+)\s+(https?:\/\/[^\s,]+)/g);
+    if (nearbyNumberUrls) {
+      console.log('🔗 Found nearby number URLs:', nearbyNumberUrls);
+      nearbyNumberUrls.forEach(match => {
+        const urlMatch = match.match(/(\d+)\s+(https?:\/\/[^\s,]+)/);
+        if (urlMatch) {
+          const exists = sources.some(s => s.number === urlMatch[1]);
+          if (!exists) {
+            sources.push({
+              number: urlMatch[1],
+              url: urlMatch[2]
+            });
+          }
+        }
+      });
+    }
+    
+    // Format 4: Plain URLs without numbers
+    if (sources.length === 0) {
+      const plainUrls = sourcesText.match(/(https?:\/\/[^\s,)]+)/g);
+      if (plainUrls) {
+        console.log('🔗 Found plain URLs:', plainUrls);
+        plainUrls.forEach((url, index) => {
+          sources.push({
+            number: (index + 1).toString(),
+            url: url
+          });
+        });
+      }
+    }
+  }
+  
+  // Remove source references from summary text for clean display
+  summaryText = summaryText.replace(/\[\d+\]\(https?:\/\/[^)]+\)/g, '').trim();
+  summaryText = summaryText.replace(/\[\d+\]/g, '').trim();
+  
+  console.log('✅ Final parsing result:', { 
+    summaryText: summaryText.substring(0, 100) + '...', 
+    sourcesCount: sources.length,
+    sources: sources 
+  });
+  
+  if (!summaryText || summaryText.length < 10) {
+    return null;
+  }
+  
+  return {
+    summary: summaryText,
+    sources: sources
+  };
+}
+
+function buildSummaryWithSourcesHtml(data) {
+  if (!data || !data.summary) {
+    return null;
+  }
+  
+  const summaryHtml = `
+    <div class="saai-summary-section">
+      <div class="saai-summary-header"><strong>Summary:</strong></div>
+      <div class="saai-summary-text">${escapeHtml(data.summary)}</div>
+    </div>
+  `;
+  
+  let sourcesHtml = '';
+  if (data.sources && data.sources.length > 0) {
+    const sourcesList = data.sources
+      .map(source => `
+        <div class="saai-source-item">
+          <span class="saai-modern-card-dash" aria-hidden="true">—</span>
+          <span class="saai-source-text">
+            <a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer" class="saai-source-link">
+              [${escapeHtml(source.number)}] ${escapeHtml(source.url)}
+            </a>
+          </span>
+        </div>
+      `)
+      .join('');
+    
+    sourcesHtml = `
+      <div class="saai-sources-section">
+        <div class="saai-sources-header"><strong>Sources:</strong></div>
+        <div class="saai-sources-list">
+          ${sourcesList}
+        </div>
+      </div>
+    `;
+  }
+  
+  return `
+    <div class="saai-modern-card-wrapper">
+      <div class="saai-modern-card" role="group" aria-label="Sa.AI summary with sources">
+        <div class="saai-modern-card-body">
+          ${summaryHtml}
+          ${sourcesHtml}
+        </div>
+        <div class="saai-modern-card-footer">
+          <span class="saai-modern-card-time">${escapeHtml(formatCardTimestamp())}</span>
+          <div class="saai-modern-card-actions" aria-hidden="true">
+            <span class="saai-modern-card-action" title="Thumbs up">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6.6665 14.6667H13.3332C13.7013 14.6667 14.0548 14.5202 14.3123 14.2626C14.5698 14.0051 14.7163 13.6516 14.7163 13.2834V7.78338C14.7163 7.41522 14.5698 7.06174 14.3123 6.80421C14.0548 6.54669 13.7013 6.40022 13.3332 6.40022H10.6665L11.3132 3.46689C11.346 3.31244 11.3409 3.15178 11.2985 3.00033C11.2562 2.84888 11.1778 2.71204 11.0705 2.60295C10.9632 2.49386 10.8309 2.41674 10.6866 2.37939C10.5422 2.34203 10.3909 2.3457 10.2498 2.38989L5.99984 3.73322C5.79423 3.79798 5.61245 3.92036 5.47629 4.08507C5.34013 4.24977 5.2557 4.44994 5.23317 4.66155L4.6665 10.0002V13.3336" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.3335 6.66699H1.3335V13.3337H3.3335V6.66699Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="saai-modern-card-action" title="Thumbs down">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.33346 1.33301H2.66679C2.29863 1.33301 1.94515 1.47948 1.68762 1.73701C1.4301 1.99453 1.28363 2.34801 1.28363 2.71618L1.28346 8.21601C1.28346 8.58417 1.42993 8.93765 1.68746 9.19518C1.94499 9.45271 2.29846 9.59918 2.66663 9.59918H5.33329L4.68663 12.5325C4.65393 12.687 4.65908 12.8477 4.70145 12.9991C4.74382 13.1506 4.82219 13.2874 4.92947 13.3965C5.03675 13.5056 5.16902 13.5827 5.31336 13.6201C5.45771 13.6574 5.60905 13.6538 5.75013 13.6096L10.0001 12.2663C10.2058 12.2015 10.3876 12.0791 10.5237 11.9144C10.6599 11.7497 10.7443 11.5495 10.7668 11.3379L11.3335 5.99918V2.66584" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12.6665 9.33268H14.6665V2.66602H12.6665V9.33268Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildModernSummaryCardHtml(cardData) {
+  if (!cardData) {
+    return null;
+  }
+
+  const subjectPattern = /^(?:\d+\.\s*)?Subject:\s*/i;
+  const titleText = cardData.title ? cardData.title.trim() : '';
+  const titleLooksLikeSubject = titleText && subjectPattern.test(titleText);
+
+  const itemsToRender = titleLooksLikeSubject
+    ? [titleText, ...cardData.items]
+    : cardData.items;
+
+  const groups = [];
+  let currentSubjectGroup = null;
+
+  itemsToRender.forEach(rawItem => {
+    const originalText = typeof rawItem === 'string' ? rawItem.trim() : '';
+    if (!originalText) {
+      return;
+    }
+
+    const escapedText = escapeHtml(originalText);
+
+    if (subjectPattern.test(originalText)) {
+      if (currentSubjectGroup) {
+        groups.push(currentSubjectGroup);
+      }
+
+      currentSubjectGroup = {
+        subject: `<strong>${escapedText}</strong>`,
+        rows: []
+      };
+    } else if (currentSubjectGroup) {
+      currentSubjectGroup.rows.push(escapedText);
+    } else {
+      groups.push({ subject: null, rows: [escapedText] });
+    }
+  });
+
+  if (currentSubjectGroup) {
+    groups.push(currentSubjectGroup);
+  }
+
+  const renderRow = (text) => `
+        <div class="saai-modern-card-item">
+          <span class="saai-modern-card-dash" aria-hidden="true">—</span>
+          <span class="saai-modern-card-text">${text}</span>
+        </div>
+      `;
+
+  const sectionsHtml = groups
+    .map(group => {
+      if (group.subject) {
+        const rowsHtml = group.rows.length > 0
+          ? group.rows.map(renderRow).join('')
+          : '';
+
+        return `
+        <div class="saai-modern-card-section">
+          <div class="saai-modern-card-subject">${group.subject}</div>
+          ${rowsHtml}
+        </div>
+      `;
+      }
+
+      return group.rows.map(renderRow).join('');
+    })
+    .join('');
+
+  const headerHtml = !titleLooksLikeSubject && titleText
+    ? `<div class="saai-modern-card-header"><div class="saai-modern-card-title">${escapeHtml(titleText)}</div></div>`
+    : '';
+
+  return `
+    <div class="saai-modern-card-wrapper">
+      <div class="saai-modern-card" role="group" aria-label="Sa.AI summary">
+        ${headerHtml}
+        <div class="saai-modern-card-body">
+          ${sectionsHtml}
+        </div>
+        <div class="saai-modern-card-footer">
+          <span class="saai-modern-card-time">${escapeHtml(formatCardTimestamp())}</span>
+          <div class="saai-modern-card-actions" aria-hidden="true">
+            <span class="saai-modern-card-action" title="Thumbs up">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6.6665 14.6667H13.3332C13.7013 14.6667 14.0548 14.5202 14.3123 14.2626C14.5698 14.0051 14.7163 13.6516 14.7163 13.2834V7.78338C14.7163 7.41522 14.5698 7.06174 14.3123 6.80421C14.0548 6.54669 13.7013 6.40022 13.3332 6.40022H10.6665L11.3132 3.46689C11.346 3.31244 11.3409 3.15178 11.2985 3.00033C11.2562 2.84888 11.1778 2.71204 11.0705 2.60295C10.9632 2.49386 10.8309 2.41674 10.6866 2.37939C10.5422 2.34203 10.3909 2.3457 10.2498 2.38989L5.99984 3.73322C5.79423 3.79798 5.61245 3.92036 5.47629 4.08507C5.34013 4.24977 5.2557 4.44994 5.23317 4.66155L4.6665 10.0002V13.3336" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.3335 6.66699H1.3335V13.3337H3.3335V6.66699Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="saai-modern-card-action" title="Thumbs down">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.33346 1.33301H2.66679C2.29863 1.33301 1.94515 1.47948 1.68762 1.73701C1.4301 1.99453 1.28363 2.34801 1.28363 2.71618L1.28346 8.21601C1.28346 8.58417 1.42993 8.93765 1.68746 9.19518C1.94499 9.45271 2.29846 9.59918 2.66663 9.59918H5.33329L4.68663 12.5325C4.65393 12.687 4.65908 12.8477 4.70145 12.9991C4.74382 13.1506 4.82219 13.2874 4.92947 13.3965C5.03675 13.5056 5.16902 13.5827 5.31336 13.6201C5.45771 13.6574 5.60905 13.6538 5.75013 13.6096L10.0001 12.2663C10.2058 12.2015 10.3876 12.0791 10.5237 11.9144C10.6599 11.7497 10.7443 11.5495 10.7668 11.3379L11.3335 5.99918V2.66584" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12.6665 9.33268H14.6665V2.66602H12.6665V9.33268Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildSimpleModernCardHtml(cardData) {
+  if (!cardData) {
+    return null;
+  }
+
+  return `
+    <div class="saai-modern-card-wrapper">
+      <div class="saai-modern-card saai-simple-card" role="group" aria-label="Sa.AI response">
+        <div class="saai-modern-card-body">
+          <div class="saai-simple-card-text">${escapeHtml(cardData.title)}</div>
+        </div>
+        <div class="saai-modern-card-footer">
+          <span class="saai-modern-card-time">${escapeHtml(formatCardTimestamp())}</span>
+          <div class="saai-modern-card-actions" aria-hidden="true">
+            <span class="saai-modern-card-action" title="Thumbs up">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6.6665 14.6667H13.3332C13.7013 14.6667 14.0548 14.5202 14.3123 14.2626C14.5698 14.0051 14.7163 13.6516 14.7163 13.2834V7.78338C14.7163 7.41522 14.5698 7.06174 14.3123 6.80421C14.0548 6.54669 13.7013 6.40022 13.3332 6.40022H10.6665L11.3132 3.46689C11.346 3.31244 11.3409 3.15178 11.2985 3.00033C11.2562 2.84888 11.1778 2.71204 11.0705 2.60295C10.9632 2.49386 10.8309 2.41674 10.6866 2.37939C10.5422 2.34203 10.3909 2.3457 10.2498 2.38989L5.99984 3.73322C5.79423 3.79798 5.61245 3.92036 5.47629 4.08507C5.34013 4.24977 5.2557 4.44994 5.23317 4.66155L4.6665 10.0002V13.3336" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.3335 6.66699H1.3335V13.3337H3.3335V6.66699Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="saai-modern-card-action" title="Thumbs down">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.33346 1.33301H2.66679C2.29863 1.33301 1.94515 1.47948 1.68762 1.73701C1.4301 1.99453 1.28363 2.34801 1.28363 2.71618L1.28346 8.21601C1.28346 8.58417 1.42993 8.93765 1.68746 9.19518C1.94499 9.45271 2.29846 9.59918 2.66663 9.59918H5.33329L4.68663 12.5325C4.65393 12.687 4.65908 12.8477 4.70145 12.9991C4.74382 13.1506 4.82219 13.2874 4.92947 13.3965C5.03675 13.5056 5.16902 13.5827 5.31336 13.6201C5.45771 13.6574 5.60905 13.6538 5.75013 13.6096L10.0001 12.2663C10.2058 12.2015 10.3876 12.0791 10.5237 11.9144C10.6599 11.7497 10.7443 11.5495 10.7668 11.3379L11.3335 5.99918V2.66584" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12.6665 9.33268H14.6665V2.66602H12.6665V9.33268Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function tryFormatModernCard(content) {
+  const plainText = extractPlainTextContent(content);
+  
+  // Check for Summary/Insight with Sources format first
+  const summaryWithSources = parseSummaryWithSources(plainText);
+  if (summaryWithSources) {
+    return buildSummaryWithSourcesHtml(summaryWithSources);
+  }
+  
+  // Try structured card format for email summaries with subjects
+  const cardData = parseModernSummaryCard(plainText);
+  if (cardData && cardData.items && cardData.items.length > 0) {
+    // Check if this looks like an email summary with subjects
+    const hasSubjects = cardData.items.some(item => 
+      /^\d+\.\s*Subject:/i.test(item) || /Subject:/i.test(item)
+    );
+    
+    if (hasSubjects) {
+      return buildModernSummaryCardHtml(cardData);
+    }
+  }
+  
+  // Check for other structured patterns
+  if (plainText) {
+    // Pattern: "Here are the subjects of emails from X: ..."
+    if (/^Here are the subjects of emails from/i.test(plainText)) {
+      return buildEmailSubjectsCard(plainText);
+    }
+    
+    // Pattern: Any text starting with "Insight:" 
+    if (/^Insight:/i.test(plainText)) {
+      const simpleCardData = {
+        title: plainText,
+        items: []
+      };
+      return buildSimpleModernCardHtml(simpleCardData);
+    }
+  }
+  
+  // For all other content, use simple card format for consistency
+  if (plainText && plainText.length > 10) {
+    const simpleCardData = {
+      title: plainText,
+      items: []
+    };
+    return buildSimpleModernCardHtml(simpleCardData);
+  }
+  
+  return null;
+}
+
+function buildEmailSubjectsCard(text) {
+  // Parse email subjects list format
+  const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    return buildSimpleModernCardHtml({ title: text, items: [] });
+  }
+  
+  const title = lines[0];
+  const subjects = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    // Match numbered subjects or bullet points
+    if (/^\d+\.\s*/.test(line) || /^[-•*]\s*/.test(line)) {
+      subjects.push(line);
+    } else if (line.length > 10) {
+      subjects.push(line);
+    }
+  }
+  
+  if (subjects.length === 0) {
+    return buildSimpleModernCardHtml({ title: text, items: [] });
+  }
+  
+  const itemsHtml = subjects
+    .map(subject => `
+      <div class="saai-modern-card-item">
+        <span class="saai-modern-card-dash" aria-hidden="true">—</span>
+        <span class="saai-modern-card-text">${escapeHtml(subject)}</span>
+      </div>
+    `)
+    .join('');
+  
+  return `
+    <div class="saai-modern-card-wrapper">
+      <div class="saai-modern-card" role="group" aria-label="Email subjects">
+        <div class="saai-modern-card-header">
+          <div class="saai-modern-card-title">${escapeHtml(title)}</div>
+        </div>
+        <div class="saai-modern-card-body">
+          ${itemsHtml}
+        </div>
+        <div class="saai-modern-card-footer">
+          <span class="saai-modern-card-time">${escapeHtml(formatCardTimestamp())}</span>
+          <div class="saai-modern-card-actions" aria-hidden="true">
+            <span class="saai-modern-card-action" title="Thumbs up">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6.6665 14.6667H13.3332C13.7013 14.6667 14.0548 14.5202 14.3123 14.2626C14.5698 14.0051 14.7163 13.6516 14.7163 13.2834V7.78338C14.7163 7.41522 14.5698 7.06174 14.3123 6.80421C14.0548 6.54669 13.7013 6.40022 13.3332 6.40022H10.6665L11.3132 3.46689C11.346 3.31244 11.3409 3.15178 11.2985 3.00033C11.2562 2.84888 11.1778 2.71204 11.0705 2.60295C10.9632 2.49386 10.8309 2.41674 10.6866 2.37939C10.5422 2.34203 10.3909 2.3457 10.2498 2.38989L5.99984 3.73322C5.79423 3.79798 5.61245 3.92036 5.47629 4.08507C5.34013 4.24977 5.2557 4.44994 5.23317 4.66155L4.6665 10.0002V13.3336" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3.3335 6.66699H1.3335V13.3337H3.3335V6.66699Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="saai-modern-card-action" title="Thumbs down">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.33346 1.33301H2.66679C2.29863 1.33301 1.94515 1.47948 1.68762 1.73701C1.4301 1.99453 1.28363 2.34801 1.28363 2.71618L1.28346 8.21601C1.28346 8.58417 1.42993 8.93765 1.68746 9.19518C1.94499 9.45271 2.29846 9.59918 2.66663 9.59918H5.33329L4.68663 12.5325C4.65393 12.687 4.65908 12.8477 4.70145 12.9991C4.74382 13.1506 4.82219 13.2874 4.92947 13.3965C5.03675 13.5056 5.16902 13.5827 5.31336 13.6201C5.45771 13.6574 5.60905 13.6538 5.75013 13.6096L10.0001 12.2663C10.2058 12.2015 10.3876 12.0791 10.5237 11.9144C10.6599 11.7497 10.7443 11.5495 10.7668 11.3379L11.3335 5.99918V2.66584" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12.6665 9.33268H14.6665V2.66602H12.6665V9.33268Z" stroke="#475569" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Enhanced message formatting function
+function formatMessageContent(content) {
+  // Convert markdown-style lists to HTML with enhanced styling
+  let formatted = content;
+
+  const hasHtmlTags = /<\s*\w+[^>]*>/.test(formatted);
+  if (!hasHtmlTags) {
+    const cardHtml = tryFormatModernCard(formatted);
+    if (cardHtml) {
+      debugLog('Modern summary card formatting applied');
+      return cardHtml;
+    }
+  }
+
+  // Check if content already contains HTML tags - if so, don't format it
+  if (hasHtmlTags) {
+    debugLog('Content already contains HTML, returning as-is');
+    return formatted;
+  }
+
+  // Handle numbered lists
+  formatted = formatted.replace(/^(\d+)\.\s+(.+)$/gm, '<div class="numbered-item"><span class="item-number">$1.</span><div class="item-content">$2</div></div>');
+
+  // Handle bullet points  
+  formatted = formatted.replace(/^[•\-\*]\s+(.+)$/gm, '<div class="list-item">$1</div>');
+
+  // Handle headers
+  formatted = formatted.replace(/^###\s+(.+)$/gm, '<h3 class="response-header">$1</h3>');
+  formatted = formatted.replace(/^##\s+(.+)$/gm, '<h2 class="response-header">$1</h2>');
+  formatted = formatted.replace(/^#\s+(.+)$/gm, '<h1 class="response-header">$1</h1>');
+
+  // Handle bold text
+  formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong class="highlight">$1</strong>');
+
+  // Handle code blocks
+  formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Convert line breaks to paragraphs for plain text
+  if (!formatted.includes('<div') && !formatted.includes('<h') && !formatted.includes('<ul') && !formatted.includes('<ol')) {
+    const paragraphs = formatted.split(/\n\s*\n/);
+    if (paragraphs.length > 1) {
+      formatted = paragraphs.map(p => p.trim()).filter(p => p).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    } else {
+      formatted = `<p>${formatted.replace(/\n/g, '<br>')}</p>`;
+    }
+  }
+
+  // Wrap in formatted response container
+  return `<div class="formatted-response">${formatted}</div>`;
+}
+
 let isOnline = navigator.onLine;
 window.addEventListener('online', () => {
   isOnline = true;
@@ -1352,6 +2025,9 @@ async function createSidebar() {
   // Check connection status
   const isConnected = await isGmailConnected();
   
+  // Create settings sidebar
+  createSettingsSidebar();
+  
   // Find Gmail's main wrapper container (.nH)
   const gmailMainWrapper = document.querySelector('.nH');
   
@@ -1579,14 +2255,32 @@ function createChatInterfaceHTML() {
       </div>
     </div>
     <div class="chat-input-container">
-      <input type="text" id="chat-input" placeholder="Ask me anything about your emails..." />
-      <button id="voice-btn" class="saai-voice-btn" title="Voice mode">🎤</button>
-      <button id="voice-exit-btn" class="saai-voice-exit-btn" title="Show chat transcript" style="display:none">Show Chat</button>
-      <button id="send-btn">
+      <div class="chat-input-row">
+        <div class="chat-input-wrapper">
+          <textarea id="chat-input" placeholder="Ask me anything about your emails..." rows="1"></textarea>
+        </div>
+        <div class="chat-input-controls">
+          <button id="voice-btn" class="saai-action-btn saai-voice-btn" title="Voice mode">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <button id="send-btn" class="saai-action-btn saai-send-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2L11 13"/>
+              <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button id="voice-exit-btn" class="saai-voice-exit-btn" title="Show chat transcript" style="display:none">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="22" y1="2" x2="11" y2="13"/>
-          <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
+        Show Chat
       </button>
     </div>
     <div id="voice-indicator" class="saai-voice-indicator" style="display:none">
@@ -2031,8 +2725,29 @@ function addSidebarEventListeners(sidebar, isConnected) {
       // Chat input
       const chatInput = sidebar.querySelector('#chat-input');
       if (chatInput) {
-        chatInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
+        // Auto-expanding textarea functionality
+        chatInput.addEventListener('input', function() {
+          const baseHeight = 40;
+          const maxHeight = 100;
+
+          this.style.height = baseHeight + 'px';
+          this.classList.remove('expanded');
+
+          const scrollHeight = this.scrollHeight;
+
+          if (scrollHeight > baseHeight) {
+            const newHeight = Math.min(scrollHeight, maxHeight);
+            this.style.height = newHeight + 'px';
+
+            if (newHeight >= maxHeight) {
+              this.classList.add('expanded');
+            }
+          }
+        });
+        
+        chatInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
             handleSendMessage();
           }
         });
@@ -2513,8 +3228,8 @@ async function handleSendMessage() {
     suggestions.remove();
   }
   
-  // Show typing indicator
-  const typingIndicator = appendMessage('bot', 'AI is thinking...', chatArea, true);
+  // Show enhanced thinking indicator
+  const typingIndicator = showThinkingIndicator(chatArea);
   
   try {
     // Get userId from storage
@@ -2705,9 +3420,9 @@ async function handleSendMessage() {
               const summaryText = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem);
               debugLog('Using fallback summary text:', summaryText);
               // Apply formatting to unstructured text
-              const formattedText = formatUnstructuredResponse(summaryText);
+              const formattedText = formatMessageContent(summaryText);
               debugLog('Using formatted fallback text, length:', formattedText.length);
-              appendMessage('bot', formattedText, chatArea);
+              appendMessage('bot', formattedText, chatArea, false, true);
             }
           } else if (parsedReply && typeof parsedReply === 'object') {
             // Handle object format
@@ -2720,9 +3435,9 @@ async function handleSendMessage() {
             }
                       } else {
               // Fallback to raw text - apply formatting
-              const formattedText = formatUnstructuredResponse(parsedReply);
+              const formattedText = formatMessageContent(parsedReply);
               debugLog('Using formatted fallback text, length:', formattedText.length);
-              appendMessage('bot', formattedText, chatArea);
+              appendMessage('bot', formattedText, chatArea, false, true);
             }
           
         } catch (parseError) {
@@ -2749,22 +3464,22 @@ async function handleSendMessage() {
         // Handle direct string response
         debugLog('Found direct string response:', responseData);
         // Apply formatting to unstructured text
-        const formattedText = formatUnstructuredResponse(responseData);
+        const formattedText = formatMessageContent(responseData);
         debugLog('Using formatted string response, length:', formattedText.length);
-        appendMessage('bot', formattedText, chatArea);
+        appendMessage('bot', formattedText, chatArea, false, true);
               } else if (responseData && responseData.summary) {
           // Handle direct summary field
           debugLog('Found direct summary field:', responseData.summary);
           // Apply formatting to summary text
-          const formattedText = formatUnstructuredResponse(responseData.summary);
+          const formattedText = formatMessageContent(responseData.summary);
           debugLog('Using formatted summary, length:', formattedText.length);
-          appendMessage('bot', formattedText, chatArea);
+          appendMessage('bot', formattedText, chatArea, false, true);
               } else if (responseData && responseData.message) {
           // Direct message response
           // Apply formatting to message text
-          const formattedText = formatUnstructuredResponse(responseData.message);
+          const formattedText = formatMessageContent(responseData.message);
           debugLog('Using formatted message, length:', formattedText.length);
-          appendMessage('bot', formattedText, chatArea);
+          appendMessage('bot', formattedText, chatArea, false, true);
       } else if (responseData && Array.isArray(responseData)) {
         // Handle direct array response
         debugLog('Found direct array response:', responseData);
@@ -2776,9 +3491,9 @@ async function handleSendMessage() {
             debugLog('Using first array item as text:', firstItem);
             const itemText = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem);
             // Apply formatting to array item text
-            const formattedText = formatUnstructuredResponse(itemText);
+            const formattedText = formatMessageContent(itemText);
             debugLog('Using formatted array item, length:', formattedText.length);
-            appendMessage('bot', formattedText, chatArea);
+            appendMessage('bot', formattedText, chatArea, false, true);
           }
       } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData)) {
         // Handle direct structured object response
@@ -2799,7 +3514,18 @@ async function handleSendMessage() {
         } else if (responseData.message) {
           // Check for direct message field
           debugLog('Found direct message field');
-          appendMessage('bot', responseData.message, chatArea);
+          debugLog('Raw message before formatting:', responseData.message);
+          
+          // If message contains HTML tags, use it directly as it should be properly formatted
+          if (responseData.message.includes('<div') || responseData.message.includes('<p>') || responseData.message.includes('<span>')) {
+            debugLog('Message contains HTML, using directly');
+            appendMessage('bot', responseData.message, chatArea, false, true);
+          } else {
+            // Plain text message, apply formatting
+            const formattedMessage = formatMessageContent(responseData.message);
+            debugLog('Formatted message:', formattedMessage);
+            appendMessage('bot', formattedMessage, chatArea, false, true);
+          }
         } else {
           // Fallback for other object types
           debugLog('Using object as JSON string');
@@ -2842,24 +3568,49 @@ async function handleSendMessage() {
   }
 }
 
-function appendMessage(sender, text, chatArea, temporary = false) {
+function appendMessage(sender, text, chatArea, temporary = false, isFormatted = false) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}-message${temporary ? ' temporary' : ''}`;
   
-  messageDiv.innerHTML = `
-    <div class="message-content">
-      ${text}
-    </div>
-  `;
+  const messageContent = document.createElement('div');
+  messageContent.className = 'message-content';
+  
+  // Auto-detect simple HTML if caller forgot to pass isFormatted
+  const looksLikeHtml = typeof text === 'string' && /<\w+[^>]*>/.test(text);
+
+  if (isFormatted || looksLikeHtml) {
+    // For formatted HTML content
+    debugLog('Setting innerHTML for formatted content:', text);
+    try {
+      messageContent.innerHTML = text;
+      debugLog('innerHTML set successfully');
+    } catch (error) {
+      debugError('Error setting innerHTML:', error);
+      messageContent.textContent = text; // Fallback to text
+    }
+  } else {
+    // For plain text content
+    messageContent.textContent = text;
+  }
+  
+  messageDiv.appendChild(messageContent);
+  
+  // Add timestamp for user messages
+  if (sender === 'user' && !temporary) {
+    const timeStamp = document.createElement('div');
+    timeStamp.className = 'user-message-timestamp';
+    timeStamp.textContent = formatCardTimestamp();
+    messageDiv.appendChild(timeStamp);
+  }
   
   chatArea.appendChild(messageDiv);
   chatArea.scrollTop = chatArea.scrollHeight;
-  
+
   // Save chat history after each message
   if (!temporary) {
     saveChatHistory();
   }
-  
+
   return temporary ? messageDiv : null;
 }
 
@@ -4182,6 +4933,464 @@ function cleanup() {
 }
 
 // === Page Lifecycle ===
+
+// === SETTINGS SIDEBAR FUNCTIONS ===
+
+// Create settings sidebar
+function createSettingsSidebar() {
+  // Remove any existing triggers/sidebars first to prevent duplicates
+  const existingSidebar = document.getElementById('saai-settings-sidebar');
+  const existingTrigger = document.getElementById('saai-settings-trigger');
+  
+  if (existingSidebar) {
+    existingSidebar.remove();
+    debugLog('Removed existing settings sidebar');
+  }
+  
+  if (existingTrigger) {
+    existingTrigger.remove();
+    debugLog('Removed existing settings trigger');
+  }
+
+  debugLog('Creating settings sidebar...');
+  
+  // Create the trigger separately (always visible)
+  const trigger = document.createElement('div');
+  trigger.id = 'saai-settings-trigger';
+  trigger.className = 'saai-settings-trigger';
+  
+  // Add settings icon only
+  const settingsIcon = document.createElement('div');
+  settingsIcon.className = 'trigger-icon settings-icon';
+  settingsIcon.onclick = function(e) {
+    e.stopPropagation();
+    toggleSettingsSidebar();
+  };
+  
+  trigger.appendChild(settingsIcon);
+  
+  // Create the sidebar (hidden by default)
+  const sidebar = document.createElement('div');
+  sidebar.id = 'saai-settings-sidebar';
+  sidebar.className = 'saai-settings-sidebar';
+  
+  sidebar.innerHTML = `
+    <div class="saai-settings-header">
+      <h3 class="saai-settings-title">
+        <span>⚙</span>
+        Settings
+      </h3>
+      <button class="saai-settings-close" id="saai-close-btn">×</button>
+    </div>
+    
+    <div class="saai-settings-content">
+      <button class="saai-settings-btn" onclick="showUsageModal()">
+        <div class="saai-settings-btn-text">
+          Current Usage
+          <div class="saai-settings-btn-desc">View your API usage and limits</div>
+          <div class="usage-progress">
+            <div class="usage-bar">
+              <div class="usage-fill" style="width: 65%"></div>
+            </div>
+            <div class="usage-text">650 / 1000 requests used</div>
+          </div>
+        </div>
+      </button>
+      
+      <button class="saai-settings-btn" onclick="showFeedbackModal()">
+        <div class="saai-settings-btn-text">
+          Send Feedback
+          <div class="saai-settings-btn-desc">Help us improve Sa.AI</div>
+        </div>
+      </button>
+      
+      <button class="saai-settings-btn" onclick="showSupportModal()">
+        <div class="saai-settings-btn-text">
+          Report Issue
+          <div class="saai-settings-btn-desc">Get help with technical problems</div>
+        </div>
+      </button>
+      
+      <button class="saai-settings-btn danger" onclick="confirmClearData()">
+        <div class="saai-settings-btn-text">
+          Clear All Data
+          <div class="saai-settings-btn-desc" style="color: rgba(0, 0, 0, 0.8) !important;">Delete all stored information about me</div>
+        </div>
+      </button>
+    </div>
+  `;
+  
+  // Add both elements to body
+  document.body.appendChild(trigger);
+  document.body.appendChild(sidebar);
+  
+  // Add close button event listener
+  const closeBtn = document.getElementById('saai-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggleSettingsSidebar();
+      debugLog('Settings sidebar closed via close button');
+    });
+  }
+  
+  // Add background click to close functionality
+  document.addEventListener('click', function(e) {
+    const sidebar = document.getElementById('saai-settings-sidebar');
+    const trigger = document.getElementById('saai-settings-trigger');
+    
+    if (sidebar && sidebar.classList.contains('open')) {
+      // Check if click is outside both sidebar and trigger
+      if (!sidebar.contains(e.target) && !trigger.contains(e.target)) {
+        sidebar.classList.remove('open');
+        debugLog('Settings sidebar closed by background click');
+      }
+    }
+  });
+  
+  debugLog('Settings trigger and sidebar created and appended to body');
+  
+  // Verify they were added
+  const addedTrigger = document.getElementById('saai-settings-trigger');
+  const addedSidebar = document.getElementById('saai-settings-sidebar');
+  if (addedTrigger && addedSidebar) {
+    debugLog('Settings sidebar and trigger successfully added to DOM');
+  } else {
+    debugError('Settings sidebar or trigger failed to add to DOM');
+  }
+}
+
+// Toggle settings sidebar
+window.toggleSettingsSidebar = function() {
+  debugLog('Toggle settings sidebar called');
+  const sidebar = document.getElementById('saai-settings-sidebar');
+  if (sidebar) {
+    sidebar.classList.toggle('open');
+    const isOpen = sidebar.classList.contains('open');
+    debugLog('Settings sidebar toggled, now open:', isOpen);
+  } else {
+    debugError('Settings sidebar not found when trying to toggle');
+  }
+};
+
+// Show usage modal
+window.showUsageModal = function() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3 class="task-modal-title">
+          <span>📊</span>
+          Current Usage
+        </h3>
+        <button class="task-modal-close-btn" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; color: var(--saai-primary); font-weight: 700; margin-bottom: 16px;">650</div>
+          <div style="font-size: 16px; color: var(--saai-text-secondary); margin-bottom: 24px;">requests used this month</div>
+          
+          <div class="usage-progress" style="max-width: 300px; margin: 0 auto 24px;">
+            <div class="usage-bar" style="height: 12px;">
+              <div class="usage-fill" style="width: 65%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--saai-text-secondary);">
+              <span>0</span>
+              <span>1000 limit</span>
+            </div>
+          </div>
+          
+          <div style="background: var(--saai-background-secondary); padding: 16px; border-radius: var(--saai-border-radius); border: 1px solid var(--saai-border);">
+            <div style="font-size: 14px; color: var(--saai-text-primary); margin-bottom: 8px; font-weight: 500;">Usage Details</div>
+            <div style="font-size: 12px; color: var(--saai-text-secondary); line-height: 1.5;">
+              • Email summaries: 420 requests<br>
+              • Chat conversations: 180 requests<br>
+              • Task extractions: 50 requests<br>
+              • Resets on: ${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+        <button class="task-modal-ok-btn" onclick="this.closest('.task-modal-overlay').remove()">Close</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+};
+
+// Show feedback modal
+window.showFeedbackModal = function() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3 class="task-modal-title">
+          <span>💬</span>
+          Send Feedback
+        </h3>
+        <button class="task-modal-close-btn" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--saai-text-primary);">Feedback Type</label>
+          <select id="feedback-type" style="width: 100%; padding: 8px 12px; border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); font-family: inherit;">
+            <option>Feature Request</option>
+            <option>Bug Report</option>
+            <option>General Feedback</option>
+            <option>Improvement Suggestion</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--saai-text-primary);">Your Feedback</label>
+          <textarea id="feedback-text" placeholder="Tell us what you think about Sa.AI..." style="width: 100%; height: 120px; padding: 12px; border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); font-family: inherit; resize: vertical;"></textarea>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--saai-text-primary);">Email (optional)</label>
+          <input type="email" id="feedback-email" placeholder="your.email@example.com" style="width: 100%; padding: 8px 12px; border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); font-family: inherit;">
+        </div>
+        
+        <button class="task-modal-ok-btn" onclick="submitFeedback()">Send Feedback</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+};
+
+// Show support modal
+window.showSupportModal = function() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3 class="task-modal-title">
+          <span>🆘</span>
+          Report Issue
+        </h3>
+        <button class="task-modal-close-btn" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--saai-text-primary);">Issue Type</label>
+          <select id="issue-type" style="width: 100%; padding: 8px 12px; border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); font-family: inherit;">
+            <option>Extension not working</option>
+            <option>Gmail integration issues</option>
+            <option>Authentication problems</option>
+            <option>Performance issues</option>
+            <option>Other technical issue</option>
+          </select>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--saai-text-primary);">Describe the Issue</label>
+          <textarea id="issue-description" placeholder="Please describe what happened and what you expected to happen..." style="width: 100%; height: 120px; padding: 12px; border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); font-family: inherit; resize: vertical;"></textarea>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; font-weight: 500; margin-bottom: 8px; color: var(--saai-text-primary);">Contact Email</label>
+          <input type="email" id="support-email" placeholder="your.email@example.com" style="width: 100%; padding: 8px 12px; border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); font-family: inherit;">
+        </div>
+        
+        <div style="background: var(--saai-background-secondary); padding: 12px; border-radius: var(--saai-border-radius); margin-bottom: 20px; font-size: 12px; color: var(--saai-text-secondary);">
+          <strong>Debug Info:</strong><br>
+          Browser: ${navigator.userAgent.split(' ').slice(-2).join(' ')}<br>
+          Extension Version: 2.1.0<br>
+          Timestamp: ${new Date().toISOString()}
+        </div>
+        
+        <button class="task-modal-ok-btn" onclick="submitSupportRequest()">Submit Report</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+};
+
+// Confirm clear data
+window.confirmClearData = function() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3 class="task-modal-title">
+          <span>⚠️</span>
+          Clear All Data
+        </h3>
+        <button class="task-modal-close-btn" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🗑️</div>
+          <div style="font-size: 16px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 500;">
+            Are you sure you want to clear all data?
+          </div>
+          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px; line-height: 1.5;">
+            This will permanently delete:
+            <br>• All conversation history
+            <br>• Saved preferences and settings  
+            <br>• Cached email summaries
+            <br>• Authentication tokens
+            <br><br>
+            <strong>This action cannot be undone.</strong>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button style="flex: 1; padding: 12px; background: var(--saai-accent); border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="this.closest('.task-modal-overlay').remove()">Cancel</button>
+          <button style="flex: 1; padding: 12px; background: #dc2626; color: white; border: none; border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="clearAllData()">Clear Data</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+};
+
+// Submit feedback
+window.submitFeedback = function() {
+  const type = document.getElementById('feedback-type').value;
+  const text = document.getElementById('feedback-text').value;
+  const email = document.getElementById('feedback-email').value;
+  
+  if (!text.trim()) {
+    alert('Please enter your feedback before submitting.');
+    return;
+  }
+  
+  // Here you would typically send to your feedback endpoint
+  console.log('Feedback submitted:', { type, text, email });
+  
+  // Show success message
+  const modal = document.querySelector('.task-modal-overlay');
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3 class="task-modal-title">
+          <span>✅</span>
+          Feedback Sent
+        </h3>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🙏</div>
+          <div style="font-size: 16px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 500;">
+            Thank you for your feedback!
+          </div>
+          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px;">
+            We appreciate you taking the time to help us improve Sa.AI.
+          </div>
+        </div>
+        <button class="task-modal-ok-btn" onclick="this.closest('.task-modal-overlay').remove()">Close</button>
+      </div>
+    </div>
+  `;
+};
+
+// Submit support request
+window.submitSupportRequest = function() {
+  const type = document.getElementById('issue-type').value;
+  const description = document.getElementById('issue-description').value;
+  const email = document.getElementById('support-email').value;
+  
+  if (!description.trim() || !email.trim()) {
+    alert('Please fill in all required fields.');
+    return;
+  }
+  
+  // Here you would typically send to your support endpoint
+  console.log('Support request submitted:', { type, description, email });
+  
+  // Show success message
+  const modal = document.querySelector('.task-modal-overlay');
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3 class="task-modal-title">
+          <span>✅</span>
+          Report Submitted
+        </h3>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">📧</div>
+          <div style="font-size: 16px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 500;">
+            Support request submitted successfully!
+          </div>
+          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px;">
+            We'll get back to you within 24 hours at the provided email address.
+          </div>
+        </div>
+        <button class="task-modal-ok-btn" onclick="this.closest('.task-modal-overlay').remove()">Close</button>
+      </div>
+    </div>
+  `;
+};
+
+// Clear all data
+window.clearAllData = function() {
+  // Clear all storage
+  chrome.storage.local.clear(() => {
+    chrome.storage.sync.clear(() => {
+      // Show success message
+      const modal = document.querySelector('.task-modal-overlay');
+      modal.innerHTML = `
+        <div class="task-modal-content">
+          <div class="task-modal-header">
+            <h3 class="task-modal-title">
+              <span>✅</span>
+              Data Cleared
+            </h3>
+          </div>
+          <div class="task-modal-body">
+            <div style="text-align: center; padding: 20px;">
+              <div style="font-size: 48px; margin-bottom: 16px;">🧹</div>
+              <div style="font-size: 16px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 500;">
+                All data has been cleared successfully!
+              </div>
+              <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px;">
+                The page will reload to reset the extension.
+              </div>
+            </div>
+            <button class="task-modal-ok-btn" onclick="window.location.reload()">Reload Page</button>
+          </div>
+        </div>
+      `;
+    });
+  });
+};
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
