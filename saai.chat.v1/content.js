@@ -4502,17 +4502,45 @@ function updateCreditDisplay() {
   const usageFill = document.querySelector('.usage-fill');
   const usageText = document.querySelector('.usage-text');
   
+  // Settings sidebar elements
+  const settingsUsageFill = document.getElementById('settings-usage-fill');
+  const settingsUsageText = document.getElementById('settings-usage-text');
+  
+  // Modal elements
+  const modalUsageNumber = document.getElementById('modal-usage-number');
+  const modalUsageFill = document.getElementById('modal-usage-fill');
+  
+  const percentage = (userCredits.used / userCredits.total) * 100;
+  
+  // Update onboarding card
   if (creditsNumber) {
     creditsNumber.textContent = userCredits.remaining;
   }
   
   if (usageFill) {
-    const percentage = (userCredits.used / userCredits.total) * 100;
     usageFill.style.width = `${percentage}%`;
   }
   
   if (usageText) {
     usageText.textContent = `${userCredits.used} / ${userCredits.total} requests used`;
+  }
+  
+  // Update settings sidebar
+  if (settingsUsageFill) {
+    settingsUsageFill.style.width = `${percentage}%`;
+  }
+  
+  if (settingsUsageText) {
+    settingsUsageText.textContent = `${userCredits.used} / ${userCredits.total} requests used`;
+  }
+  
+  // Update modal
+  if (modalUsageNumber) {
+    modalUsageNumber.textContent = userCredits.used;
+  }
+  
+  if (modalUsageFill) {
+    modalUsageFill.style.width = `${percentage}%`;
   }
 }
 
@@ -5385,9 +5413,9 @@ function createSettingsSidebar() {
           <div class="saai-settings-btn-desc">View your API usage and limits</div>
           <div class="usage-progress">
             <div class="usage-bar">
-              <div class="usage-fill" style="width: 65%"></div>
+              <div class="usage-fill" id="settings-usage-fill" style="width: 0%"></div>
             </div>
-            <div class="usage-text">650 / 1000 requests used</div>
+            <div class="usage-text" id="settings-usage-text">0 / 1000 requests used</div>
           </div>
         </div>
       </button>
@@ -5470,6 +5498,8 @@ window.toggleSettingsSidebar = function() {
 
 // Show credit breakdown tooltip on hover
 window.showCreditTooltip = function(button) {
+  debugLog('showCreditTooltip called');
+  
   // Remove any existing tooltip
   hideCreditTooltip();
   
@@ -5514,6 +5544,7 @@ window.showCreditTooltip = function(button) {
   `;
   
   document.body.appendChild(tooltip);
+  debugLog('Tooltip created and appended to body');
   
   // Position tooltip to the right of the button
   const buttonRect = button.getBoundingClientRect();
@@ -5533,17 +5564,20 @@ window.showCreditTooltip = function(button) {
   // Add fade-in animation
   setTimeout(() => {
     tooltip.classList.add('show');
+    debugLog('Tooltip show class added');
   }, 10);
 };
 
 // Hide credit breakdown tooltip
 window.hideCreditTooltip = function() {
+  debugLog('hideCreditTooltip called');
   const tooltip = document.getElementById('saai-credit-tooltip');
   if (tooltip) {
     tooltip.classList.remove('show');
     setTimeout(() => {
       if (tooltip.parentNode) {
         tooltip.parentNode.removeChild(tooltip);
+        debugLog('Tooltip removed from DOM');
       }
     }, 200);
   }
@@ -5562,12 +5596,12 @@ window.showUsageModal = function() {
       </div>
       <div class="task-modal-body">
         <div style="text-align: center; padding: 20px;">
-          <div style="font-size: 48px; color: var(--saai-primary); font-weight: 700; margin-bottom: 16px;">650</div>
+          <div style="font-size: 48px; color: var(--saai-primary); font-weight: 700; margin-bottom: 16px;" id="modal-usage-number">0</div>
           <div style="font-size: 16px; color: var(--saai-text-secondary); margin-bottom: 24px;">requests used this month</div>
           
           <div class="usage-progress" style="max-width: 300px; margin: 0 auto 24px;">
             <div class="usage-bar" style="height: 12px;">
-              <div class="usage-fill" style="width: 65%"></div>
+              <div class="usage-fill" id="modal-usage-fill" style="width: 0%"></div>
             </div>
             <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--saai-text-secondary);">
               <span>0</span>
