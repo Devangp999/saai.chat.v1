@@ -2463,7 +2463,42 @@ function createWelcomePageHTML() {
               </div>
             </div>
           </div>
-          <p style="font-size: 16px; color: var(--saai-text-primary); font-weight: 500;">Each summary, draft, or voice request = 1 credit.</p>
+          
+          <!-- Credit Usage Breakdown -->
+          <div class="credit-breakdown">
+            <h3 style="font-size: 18px; color: var(--saai-text-primary); font-weight: 600; margin: 20px 0 15px 0;">Credit Usage</h3>
+            <div class="credit-items">
+              <div class="credit-item">
+                <span class="credit-feature">Thread Summarization</span>
+                <span class="credit-cost">5 credits</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-feature">Web Search</span>
+                <span class="credit-cost">8 credits</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-feature">Task Extraction</span>
+                <span class="credit-cost">10 credits</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-feature">Ask Question (Inbox)</span>
+                <span class="credit-cost">10 credits</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-feature">Inbox Summarization</span>
+                <span class="credit-cost">15 credits</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-feature">Voice Mode</span>
+                <span class="credit-cost">same as the feature it triggers</span>
+              </div>
+              <div class="credit-item credit-item-danger">
+                <span class="credit-feature">Delete All Data</span>
+                <span class="credit-cost">250 credits</span>
+              </div>
+            </div>
+          </div>
+          
           <p class="credits-note">We'll add more ways to earn/extend credits soon.</p>
         </div>
         </div>

@@ -2232,6 +2232,59 @@ body .AD[role="dialog"] {
   margin-top: 16px;
 }
 
+/* Credit Breakdown */
+.credit-breakdown {
+  margin: 24px 0;
+}
+
+.credit-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.credit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  transition: all 0.2s ease;
+}
+
+.credit-item:hover {
+  background: rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.credit-item-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.credit-item-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.credit-feature {
+  font-size: 14px;
+  color: var(--saai-text-primary);
+  font-weight: 500;
+}
+
+.credit-cost {
+  font-size: 14px;
+  color: var(--saai-text-primary);
+  font-weight: 600;
+}
+
+.credit-item-danger .credit-cost {
+  color: #ef4444;
+  font-weight: 700;
+}
+
 /* Extensibility Demo */
 .extensibility-demo {
   margin: 32px 0;
@@ -3926,6 +3979,58 @@ body .AD[role="dialog"] {
   font-size: 12px;
   opacity: 0.8;
   font-style: italic;
+}
+
+/* Credit Breakdown - Mobile */
+.credit-breakdown {
+  margin: 16px 0;
+}
+
+.credit-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.credit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(15, 23, 42, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  transition: all 0.2s ease;
+}
+
+.credit-item:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.credit-item-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.credit-item-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.credit-feature {
+  font-size: 12px;
+  color: var(--saai-text-primary);
+  font-weight: 500;
+}
+
+.credit-cost {
+  font-size: 12px;
+  color: var(--saai-text-primary);
+  font-weight: 600;
+}
+
+.credit-item-danger .credit-cost {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 /* Extensibility Demo */
