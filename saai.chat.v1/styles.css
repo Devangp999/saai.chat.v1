@@ -2288,18 +2288,19 @@ body .AD[role="dialog"] {
 /* Credit Tooltip */
 .saai-credit-tooltip {
   position: fixed;
-  z-index: 10000;
-  background: var(--saai-background);
-  border: 1px solid var(--saai-border);
-  border-radius: var(--saai-border-radius);
-  box-shadow: var(--saai-shadow-lg);
+  z-index: 10010;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   padding: 16px;
   min-width: 280px;
   max-width: 320px;
   opacity: 0;
-  transform: translateX(-10px);
+  transform: translateX(10px);
   transition: all 0.2s ease;
   pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .saai-credit-tooltip.show {
@@ -2310,14 +2311,14 @@ body .AD[role="dialog"] {
 .credit-tooltip-header {
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--saai-border);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .credit-tooltip-header h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--saai-text-primary);
+  color: #1f2937;
 }
 
 .credit-tooltip-content {
@@ -2335,16 +2336,80 @@ body .AD[role="dialog"] {
 }
 
 .credit-tooltip-feature {
-  color: var(--saai-text-primary);
+  color: #374151;
   font-weight: 500;
 }
 
 .credit-tooltip-cost {
-  color: var(--saai-text-primary);
+  color: #374151;
   font-weight: 600;
 }
 
 .credit-tooltip-danger .credit-tooltip-cost {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* Inline Credit Tooltip (within sidebar) */
+.saai-credit-tooltip-inline {
+  position: relative;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  margin: 8px 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  z-index: 5;
+}
+
+.saai-credit-tooltip-inline.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-header {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-feature {
+  color: #374151;
+  font-weight: 500;
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-cost {
+  color: #374151;
+  font-weight: 600;
+}
+
+.saai-credit-tooltip-inline .credit-tooltip-danger .credit-tooltip-cost {
   color: #ef4444;
   font-weight: 700;
 }

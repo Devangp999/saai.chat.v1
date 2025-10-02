@@ -4876,6 +4876,20 @@ function injectSuggestions() {
 // === Task Management ===
 
 async function showTaskModal() {
+  // Check credits before showing task modal
+  if (userCredits.remaining === 0) {
+    showInsufficientCreditsModal();
+    return;
+  }
+  
+  if (!hasEnoughCredits('TASK_EXTRACTION')) {
+    showInsufficientCreditsModal();
+    return;
+  }
+  
+  // Deduct credits for task extraction
+  deductCredits('TASK_EXTRACTION');
+  
   // Show loading state first
   const modal = document.createElement('div');
   modal.id = 'task-modal';
@@ -4923,6 +4937,7 @@ async function showTaskModal() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getJWTToken()}`
       },
       body: JSON.stringify({
         userId: userId,
@@ -5179,6 +5194,7 @@ function addTaskModalEventListeners(modal) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${await getJWTToken()}`
             },
             body: JSON.stringify({
               userId: userId,
@@ -5292,6 +5308,7 @@ async function addManualTask(taskText, priority = 'medium') {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getJWTToken()}`
       },
       body: JSON.stringify({
         userId: userId,
@@ -5407,7 +5424,7 @@ function createSettingsSidebar() {
     </div>
     
     <div class="saai-settings-content">
-      <button class="saai-settings-btn" onclick="showUsageModal()" onmouseenter="showCreditTooltip(this)" onmouseleave="hideCreditTooltip()">
+      <button class="saai-settings-btn" id="saai-usage-btn">
         <div class="saai-settings-btn-text">
           Current Usage
           <div class="saai-settings-btn-desc">View your API usage and limits</div>
@@ -5420,21 +5437,21 @@ function createSettingsSidebar() {
         </div>
       </button>
       
-      <button class="saai-settings-btn" onclick="showFeedbackModal()">
+      <button class="saai-settings-btn" id="saai-feedback-btn">
         <div class="saai-settings-btn-text">
           Send Feedback
           <div class="saai-settings-btn-desc">Help us improve Sa.AI</div>
         </div>
       </button>
       
-      <button class="saai-settings-btn" onclick="showSupportModal()">
+      <button class="saai-settings-btn" id="saai-support-btn">
         <div class="saai-settings-btn-text">
           Report Issue
           <div class="saai-settings-btn-desc">Get help with technical problems</div>
         </div>
       </button>
       
-      <button class="saai-settings-btn danger" onclick="confirmClearData()">
+      <button class="saai-settings-btn danger" id="saai-clear-data-btn">
         <div class="saai-settings-btn-text">
           Clear All Data
           <div class="saai-settings-btn-desc" style="color: rgba(0, 0, 0, 0.8) !important;">Delete all stored information about me</div>
@@ -5454,6 +5471,46 @@ function createSettingsSidebar() {
       e.stopPropagation();
       toggleSettingsSidebar();
       debugLog('Settings sidebar closed via close button');
+    });
+  }
+  
+  // Add usage button event listeners (CSP-compliant)
+  const usageBtn = document.getElementById('saai-usage-btn');
+  if (usageBtn) {
+    usageBtn.addEventListener('click', function() {
+      showUsageModal();
+    });
+    
+    usageBtn.addEventListener('mouseenter', function() {
+      showCreditTooltip(this);
+    });
+    
+    usageBtn.addEventListener('mouseleave', function() {
+      hideCreditTooltip();
+    });
+  }
+  
+  // Add feedback button event listener
+  const feedbackBtn = document.getElementById('saai-feedback-btn');
+  if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', function() {
+      showFeedbackModal();
+    });
+  }
+  
+  // Add support button event listener
+  const supportBtn = document.getElementById('saai-support-btn');
+  if (supportBtn) {
+    supportBtn.addEventListener('click', function() {
+      showSupportModal();
+    });
+  }
+  
+  // Add clear data button event listener
+  const clearDataBtn = document.getElementById('saai-clear-data-btn');
+  if (clearDataBtn) {
+    clearDataBtn.addEventListener('click', function() {
+      confirmClearData();
     });
   }
   
@@ -5496,8 +5553,19 @@ window.toggleSettingsSidebar = function() {
   }
 };
 
-// Show credit breakdown tooltip on hover
+// Test tooltip function
+window.testTooltip = function() {
+  console.log('Testing tooltip...');
+  const button = document.querySelector('.saai-settings-btn');
+  if (button) {
+    console.log('Found button:', button);
+    showCreditTooltip(button);
+  } else {
+    console.log('Button not found');
+  }
+};
 window.showCreditTooltip = function(button) {
+  console.log('showCreditTooltip called - button:', button);
   debugLog('showCreditTooltip called');
   
   // Remove any existing tooltip
@@ -5505,7 +5573,9 @@ window.showCreditTooltip = function(button) {
   
   const tooltip = document.createElement('div');
   tooltip.id = 'saai-credit-tooltip';
-  tooltip.className = 'saai-credit-tooltip';
+  tooltip.className = 'saai-credit-tooltip-inline';
+  
+  console.log('Tooltip element created:', tooltip);
   
   tooltip.innerHTML = `
     <div class="credit-tooltip-header">
@@ -5543,27 +5613,30 @@ window.showCreditTooltip = function(button) {
     </div>
   `;
   
-  document.body.appendChild(tooltip);
-  debugLog('Tooltip created and appended to body');
-  
-  // Position tooltip to the right of the button
-  const buttonRect = button.getBoundingClientRect();
-  const tooltipRect = tooltip.getBoundingClientRect();
-  
-  tooltip.style.left = `${buttonRect.right + 10}px`;
-  tooltip.style.top = `${buttonRect.top}px`;
-  
-  // Ensure tooltip doesn't go off screen
-  const viewportWidth = window.innerWidth;
-  const tooltipRight = buttonRect.right + 10 + tooltipRect.width;
-  
-  if (tooltipRight > viewportWidth) {
-    tooltip.style.left = `${buttonRect.left - tooltipRect.width - 10}px`;
+  // Find the Settings sidebar container
+  const sidebar = document.getElementById('saai-settings-sidebar');
+  if (!sidebar) {
+    console.log('Settings sidebar not found; cannot show tooltip');
+    return;
   }
+  
+  // Insert inline tooltip at the end of the current usage button block
+  // Find the usage button and insert after it
+  const usageBtn = button.closest('.saai-settings-btn');
+  if (usageBtn && usageBtn.parentNode) {
+    usageBtn.parentNode.insertBefore(tooltip, usageBtn.nextSibling);
+    console.log('Tooltip inserted after usage button');
+  } else {
+    sidebar.appendChild(tooltip);
+    console.log('Tooltip appended to sidebar');
+  }
+  
+  debugLog('Tooltip created and inserted in sidebar');
   
   // Add fade-in animation
   setTimeout(() => {
     tooltip.classList.add('show');
+    console.log('Tooltip show class added, final element:', tooltip);
     debugLog('Tooltip show class added');
   }, 10);
 };

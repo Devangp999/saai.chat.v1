@@ -82,6 +82,36 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
+// Get JWT token from storage
+async function getJWTToken() {
+    const { jwtToken } = await chrome.storage.local.get(['jwtToken']);
+    return jwtToken;
+}
+
+// Refresh JWT token by re-initiating OAuth flow
+async function refreshJWTToken() {
+    try {
+        debugLog('JWT token expired, re-initiating OAuth flow');
+        
+        // Clear existing tokens
+        await chrome.storage.local.remove(['jwtToken', 'isConnected']);
+        
+        // Re-initiate the full OAuth flow
+        const oauthResult = await handleOAuthFlow();
+        
+        if (oauthResult.success && oauthResult.jwtToken) {
+            debugLog('JWT token refreshed successfully via OAuth flow');
+            return oauthResult.jwtToken;
+        } else {
+            throw new Error('OAuth flow failed during token refresh');
+        }
+        
+    } catch (error) {
+        debugError('Token refresh failed:', error);
+        throw error;
+    }
+}
+
 // Handle N8N webhook requests
 async function handleN8NRequest(data) {
     const { endpoint, payload } = data;
@@ -91,7 +121,13 @@ async function handleN8NRequest(data) {
         return await handleOAuthFlow();
     }
     
-    // For other endpoints, call n8n directly
+    // Get JWT token for authenticated requests
+    const jwtToken = await getJWTToken();
+    if (!jwtToken) {
+        throw new Error('No JWT token found. Please authenticate first.');
+    }
+    
+    // For other endpoints, call n8n directly with JWT token
     let url;
     switch (endpoint) {
         case 'chat':
@@ -108,6 +144,9 @@ async function handleN8NRequest(data) {
                 url = 'https://dxb2025.app.n8n.cloud/webhook/Chatbot-Nishant';
             }
             break;
+        case 'task':
+            url = 'https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant';
+            break;
         default:
             throw new Error('Invalid endpoint');
     }
@@ -119,7 +158,8 @@ async function handleN8NRequest(data) {
         method: 'POST',
         headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
         },
         body: JSON.stringify(payload)
     });
@@ -129,7 +169,34 @@ async function handleN8NRequest(data) {
     
     if (!response.ok) {
             // Handle specific error cases
-            if (response.status === 404) {
+            if (response.status === 401) {
+                console.log('[Background] JWT token expired, attempting refresh');
+                // Try to refresh the token
+                try {
+                    await refreshJWTToken();
+                    // Retry the request with new token
+                    const newJwtToken = await getJWTToken();
+                    const retryResponse = await safeRequest(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${newJwtToken}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (retryResponse.ok) {
+                        const retryResult = await retryResponse.json();
+                        return retryResult;
+                    } else {
+                        throw new Error('Token refresh failed');
+                    }
+                } catch (refreshError) {
+                    console.error('[Background] Token refresh failed:', refreshError);
+                    throw new Error('Authentication expired. Please reconnect your account.');
+                }
+            } else if (response.status === 404) {
                 console.error('[Background] n8n webhook not found (404)');
                 // Return a fallback response instead of throwing error
                 return await handleFallbackResponse(endpoint, payload);
@@ -230,8 +297,139 @@ async function handleFallbackResponse(endpoint, payload) {
     };
 }
 
-// Handle OAuth flow
+// PKCE OAuth flow with n8n webhook
 async function handleOAuthFlow() {
+    try {
+        debugLog('Starting PKCE OAuth flow with n8n');
+        
+        // Step 1: Call n8n /oauth/start endpoint to get PKCE parameters
+        const startResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/start', {
+            method: 'GET'
+        });
+        
+        debugLog('PKCE start response status:', startResponse.status);
+        debugLog('PKCE start response headers:', Object.fromEntries(startResponse.headers.entries()));
+        
+        const startData = await startResponse.json();
+        debugLog('PKCE start response data:', startData);
+        
+        if (!startData.state || !startData.code_challenge) {
+            debugError('Invalid PKCE parameters from n8n:', startData);
+            throw new Error(`Invalid PKCE parameters from n8n. Response: ${JSON.stringify(startData)}`);
+        }
+        
+        // Step 2: Build Google OAuth URL with n8n's PKCE parameters
+        const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
+        const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback';
+        const scopes = [
+            'email',
+            'profile',
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.send',
+            'https://www.googleapis.com/auth/gmail.labels',
+            'https://www.googleapis.com/auth/gmail.compose',
+            'https://www.googleapis.com/auth/gmail.modify',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'openid'
+        ];
+        
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${clientId}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+            `&scope=${encodeURIComponent(scopes.join(' '))}` +
+            `&response_type=code` +
+            `&access_type=offline` +
+            `&prompt=consent` +
+            `&code_challenge=${encodeURIComponent(startData.code_challenge)}` +
+            `&code_challenge_method=${startData.code_challenge_method || 'S256'}` +
+            `&state=${encodeURIComponent(startData.state)}`;
+        
+        debugLog('Launching OAuth flow with PKCE, redirect URI:', redirectUri);
+        debugLog('Using n8n state:', startData.state);
+        
+        // Step 3: Launch OAuth flow
+        return new Promise((resolve, reject) => {
+            chrome.identity.launchWebAuthFlow({
+                url: authUrl,
+                interactive: true
+            }, async function(redirectUrl) {
+                if (chrome.runtime.lastError) {
+                    debugError('OAuth failed:', chrome.runtime.lastError);
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                
+                if (redirectUrl) {
+                    debugLog('OAuth redirect URL received:', redirectUrl);
+                    
+                    try {
+                        // Step 4: n8n redirects back to extension with JWT token
+                        // Extract JWT token and user ID from redirect URL
+                        const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
+                        const jwtToken = urlParams.get('jwt_token');
+                        const userId = urlParams.get('user_id');
+                        const returnedState = urlParams.get('state');
+                        
+                        // Check if this is an error response
+                        const error = urlParams.get('error');
+                        if (error) {
+                            const errorDescription = urlParams.get('error_description') || 'Unknown error';
+                            throw new Error(`OAuth error: ${error} - ${errorDescription}`);
+                        }
+                        
+                        if (!jwtToken || !userId) {
+                            throw new Error('No JWT token or user ID in redirect URL');
+                        }
+                        
+                        if (returnedState !== startData.state) {
+                            throw new Error('State mismatch in OAuth response');
+                        }
+                        
+                        debugLog('JWT token extracted:', jwtToken.substring(0, 20) + '...');
+                        debugLog('User ID extracted:', userId);
+                        debugLog('State verified:', returnedState);
+                        
+                        // Step 5: Store JWT token and user ID
+                        await chrome.storage.local.set({
+                            isConnected: true,
+                            userId: userId,
+                            jwtToken: jwtToken,
+                            oauthData: {
+                                userId: userId,
+                                jwtToken: jwtToken,
+                                redirectUrl: redirectUrl
+                            }
+                        });
+                        
+                        debugLog('PKCE OAuth flow completed successfully');
+                        resolve({ 
+                            success: true, 
+                            userId: userId,
+                            jwtToken: jwtToken
+                        });
+                        
+                    } catch (error) {
+                        debugError('Error in PKCE OAuth flow:', error);
+                        reject(error);
+                    }
+                } else {
+                    reject(new Error('OAuth was cancelled'));
+                }
+            });
+        });
+        
+    } catch (error) {
+        debugError('PKCE OAuth flow failed:', error);
+        
+        // Fallback to original OAuth flow if PKCE fails
+        debugLog('Falling back to original OAuth flow');
+        return await handleOriginalOAuthFlow();
+    }
+}
+
+// Original OAuth flow (fallback)
+async function handleOriginalOAuthFlow() {
     const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
     const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback';
     const scopes = 'email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
@@ -336,6 +534,9 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
         }
         if (changes.userId) {
             console.log('User ID updated:', changes.userId.newValue);
+        }
+        if (changes.jwtToken) {
+            console.log('JWT token updated:', changes.jwtToken.newValue ? 'Token present' : 'Token removed');
         }
     }
 });
