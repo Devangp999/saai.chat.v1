@@ -5019,7 +5019,7 @@ function createSettingsSidebar() {
     </div>
     
     <div class="saai-settings-content">
-      <button class="saai-settings-btn" onclick="showUsageModal()">
+      <button class="saai-settings-btn" onclick="showUsageModal()" onmouseenter="showCreditTooltip(this)" onmouseleave="hideCreditTooltip()">
         <div class="saai-settings-btn-text">
           Current Usage
           <div class="saai-settings-btn-desc">View your API usage and limits</div>
@@ -5108,7 +5108,86 @@ window.toggleSettingsSidebar = function() {
   }
 };
 
-// Show usage modal
+// Show credit breakdown tooltip on hover
+window.showCreditTooltip = function(button) {
+  // Remove any existing tooltip
+  hideCreditTooltip();
+  
+  const tooltip = document.createElement('div');
+  tooltip.id = 'saai-credit-tooltip';
+  tooltip.className = 'saai-credit-tooltip';
+  
+  tooltip.innerHTML = `
+    <div class="credit-tooltip-header">
+      <h4>Credit Usage Breakdown</h4>
+    </div>
+    <div class="credit-tooltip-content">
+      <div class="credit-tooltip-item">
+        <span class="credit-tooltip-feature">Thread Summarization</span>
+        <span class="credit-tooltip-cost">5 credits</span>
+      </div>
+      <div class="credit-tooltip-item">
+        <span class="credit-tooltip-feature">Web Search</span>
+        <span class="credit-tooltip-cost">8 credits</span>
+      </div>
+      <div class="credit-tooltip-item">
+        <span class="credit-tooltip-feature">Task Extraction</span>
+        <span class="credit-tooltip-cost">10 credits</span>
+      </div>
+      <div class="credit-tooltip-item">
+        <span class="credit-tooltip-feature">Ask Question (Inbox)</span>
+        <span class="credit-tooltip-cost">10 credits</span>
+      </div>
+      <div class="credit-tooltip-item">
+        <span class="credit-tooltip-feature">Inbox Summarization</span>
+        <span class="credit-tooltip-cost">15 credits</span>
+      </div>
+      <div class="credit-tooltip-item">
+        <span class="credit-tooltip-feature">Voice Mode</span>
+        <span class="credit-tooltip-cost">varies by feature</span>
+      </div>
+      <div class="credit-tooltip-item credit-tooltip-danger">
+        <span class="credit-tooltip-feature">Delete All Data</span>
+        <span class="credit-tooltip-cost">250 credits</span>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(tooltip);
+  
+  // Position tooltip to the right of the button
+  const buttonRect = button.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  
+  tooltip.style.left = `${buttonRect.right + 10}px`;
+  tooltip.style.top = `${buttonRect.top}px`;
+  
+  // Ensure tooltip doesn't go off screen
+  const viewportWidth = window.innerWidth;
+  const tooltipRight = buttonRect.right + 10 + tooltipRect.width;
+  
+  if (tooltipRight > viewportWidth) {
+    tooltip.style.left = `${buttonRect.left - tooltipRect.width - 10}px`;
+  }
+  
+  // Add fade-in animation
+  setTimeout(() => {
+    tooltip.classList.add('show');
+  }, 10);
+};
+
+// Hide credit breakdown tooltip
+window.hideCreditTooltip = function() {
+  const tooltip = document.getElementById('saai-credit-tooltip');
+  if (tooltip) {
+    tooltip.classList.remove('show');
+    setTimeout(() => {
+      if (tooltip.parentNode) {
+        tooltip.parentNode.removeChild(tooltip);
+      }
+    }, 200);
+  }
+};
 window.showUsageModal = function() {
   const modal = document.createElement('div');
   modal.className = 'task-modal-overlay';

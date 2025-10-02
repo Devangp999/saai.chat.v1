@@ -2285,6 +2285,70 @@ body .AD[role="dialog"] {
   font-weight: 700;
 }
 
+/* Credit Tooltip */
+.saai-credit-tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: var(--saai-background);
+  border: 1px solid var(--saai-border);
+  border-radius: var(--saai-border-radius);
+  box-shadow: var(--saai-shadow-lg);
+  padding: 16px;
+  min-width: 280px;
+  max-width: 320px;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.saai-credit-tooltip.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.credit-tooltip-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--saai-border);
+}
+
+.credit-tooltip-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--saai-text-primary);
+}
+
+.credit-tooltip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.credit-tooltip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.credit-tooltip-feature {
+  color: var(--saai-text-primary);
+  font-weight: 500;
+}
+
+.credit-tooltip-cost {
+  color: var(--saai-text-primary);
+  font-weight: 600;
+}
+
+.credit-tooltip-danger .credit-tooltip-cost {
+  color: #ef4444;
+  font-weight: 700;
+}
+
 /* Extensibility Demo */
 .extensibility-demo {
   margin: 32px 0;
