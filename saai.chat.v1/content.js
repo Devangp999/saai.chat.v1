@@ -2490,7 +2490,7 @@ function createWelcomePageHTML() {
               </div>
               <div class="credit-item">
                 <span class="credit-feature">Voice Mode</span>
-                <span class="credit-cost">same as the feature it triggers</span>
+                <span class="credit-cost">varies by feature</span>
               </div>
               <div class="credit-item credit-item-danger">
                 <span class="credit-feature">Delete All Data</span>
