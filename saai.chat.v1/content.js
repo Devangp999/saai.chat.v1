@@ -825,6 +825,9 @@ async function initialize() {
     isInitialized = true;
     debugLog('Initialization complete');
     
+    // Initialize credit system
+    await initializeCreditSystem();
+    
     // Double-check sidebar state after initialization
     await checkAndRestoreSidebarState();
     
@@ -3244,6 +3247,22 @@ async function handleSendMessage() {
   const message = input.value.trim();
   if (!message) return;
   
+  // Check credit limit first
+  if (userCredits.remaining === 0) {
+    showCreditLimitReached();
+    return;
+  }
+  
+  // Classify the prompt to determine credit cost
+  const classification = classifyPrompt(message);
+  debugLog('Prompt classified:', classification);
+  
+  // Check if user has enough credits
+  if (!hasEnoughCredits(classification.cost)) {
+    showCreditWarning('insufficient');
+    return;
+  }
+  
   const chatArea = document.getElementById(CHAT_AREA_ID);
   if (!chatArea) {
     debugError('Chat area not found');
@@ -3351,6 +3370,14 @@ async function handleSendMessage() {
       debugLog('Response data type:', typeof response.data);
       debugLog('Response data keys:', response.data ? Object.keys(response.data) : 'null');
       debugLog('Response data length:', Array.isArray(response.data) ? response.data.length : 'not array');
+      
+      // Deduct credits after successful response
+      try {
+        await deductCredits(classification.cost, classification.feature);
+        debugLog(`Credits deducted: ${classification.cost} for ${classification.feature}`);
+      } catch (error) {
+        debugError('Failed to deduct credits:', error);
+      }
       
       // Handle array-wrapped responses from n8n
       let responseData = response.data;
@@ -4330,7 +4357,340 @@ function openFullTable(emailData) {
   }
 }
 
-// === OAuth & Connection ===
+// === CREDIT TRACKING SYSTEM ===
+
+// Credit costs for each feature
+const CREDIT_COSTS = {
+  THREAD_SUMMARIZATION: 5,
+  WEB_SEARCH: 8,
+  TASK_EXTRACTION: 10,
+  ASK_QUESTION_INBOX: 10,
+  INBOX_SUMMARIZATION: 15,
+  VOICE_MODE: 0, // Varies by feature
+  DELETE_ALL_DATA: 250
+};
+
+// Current user credit state
+let userCredits = {
+  total: 1000,
+  used: 0,
+  remaining: 1000
+};
+
+// Prompt classification patterns
+const PROMPT_PATTERNS = {
+  THREAD_SUMMARIZATION: [
+    /summarize.*thread/i,
+    /thread.*summary/i,
+    /summarize.*email.*thread/i,
+    /what.*happened.*thread/i,
+    /thread.*overview/i
+  ],
+  WEB_SEARCH: [
+    /search.*web/i,
+    /google.*search/i,
+    /web.*search/i,
+    /search.*internet/i,
+    /find.*online/i
+  ],
+  TASK_EXTRACTION: [
+    /extract.*task/i,
+    /find.*task/i,
+    /what.*task/i,
+    /task.*extraction/i,
+    /show.*task/i
+  ],
+  ASK_QUESTION_INBOX: [
+    /ask.*question/i,
+    /question.*about/i,
+    /help.*with/i,
+    /explain.*email/i,
+    /what.*does.*mean/i
+  ],
+  INBOX_SUMMARIZATION: [
+    /summarize.*inbox/i,
+    /inbox.*summary/i,
+    /email.*summary/i,
+    /summarize.*emails/i,
+    /overview.*inbox/i
+  ],
+  DELETE_ALL_DATA: [
+    /delete.*all.*data/i,
+    /clear.*all.*data/i,
+    /remove.*all.*data/i,
+    /wipe.*data/i
+  ]
+};
+
+// Classify user prompt to determine feature type and credit cost
+function classifyPrompt(prompt) {
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Check for specific patterns
+  for (const [feature, patterns] of Object.entries(PROMPT_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(lowerPrompt)) {
+        return {
+          feature: feature,
+          cost: CREDIT_COSTS[feature],
+          confidence: 'high'
+        };
+      }
+    }
+  }
+  
+  // Default classification based on context
+  if (lowerPrompt.includes('summarize') || lowerPrompt.includes('summary')) {
+    return {
+      feature: 'INBOX_SUMMARIZATION',
+      cost: CREDIT_COSTS.INBOX_SUMMARIZATION,
+      confidence: 'medium'
+    };
+  }
+  
+  if (lowerPrompt.includes('search') || lowerPrompt.includes('find')) {
+    return {
+      feature: 'WEB_SEARCH',
+      cost: CREDIT_COSTS.WEB_SEARCH,
+      confidence: 'medium'
+    };
+  }
+  
+  // Default to ask question
+  return {
+    feature: 'ASK_QUESTION_INBOX',
+    cost: CREDIT_COSTS.ASK_QUESTION_INBOX,
+    confidence: 'low'
+  };
+}
+
+// Check if user has enough credits
+function hasEnoughCredits(requiredCredits) {
+  return userCredits.remaining >= requiredCredits;
+}
+
+// Deduct credits and update state
+async function deductCredits(amount, feature) {
+  if (!hasEnoughCredits(amount)) {
+    throw new Error('Insufficient credits');
+  }
+  
+  userCredits.used += amount;
+  userCredits.remaining -= amount;
+  
+  // Update storage
+  await chrome.storage.local.set({ 
+    userCredits: userCredits,
+    lastCreditUpdate: Date.now()
+  });
+  
+  // Update UI
+  updateCreditDisplay();
+  
+  // Check for warnings
+  checkCreditWarnings();
+  
+  // Send to backend
+  await sendCreditUpdateToBackend(feature, amount);
+  
+  debugLog(`Credits deducted: ${amount} for ${feature}. Remaining: ${userCredits.remaining}`);
+}
+
+// Update credit display in UI
+function updateCreditDisplay() {
+  const creditsNumber = document.querySelector('.credits-number');
+  const usageFill = document.querySelector('.usage-fill');
+  const usageText = document.querySelector('.usage-text');
+  
+  if (creditsNumber) {
+    creditsNumber.textContent = userCredits.remaining;
+  }
+  
+  if (usageFill) {
+    const percentage = (userCredits.used / userCredits.total) * 100;
+    usageFill.style.width = `${percentage}%`;
+  }
+  
+  if (usageText) {
+    usageText.textContent = `${userCredits.used} / ${userCredits.total} requests used`;
+  }
+}
+
+// Check for credit warnings
+function checkCreditWarnings() {
+  if (userCredits.remaining <= 100 && userCredits.remaining > 0) {
+    showCreditWarning('low');
+  } else if (userCredits.remaining === 0) {
+    showCreditLimitReached();
+  }
+}
+
+// Show credit warning
+function showCreditWarning(type) {
+  let warningMessage;
+  
+  if (type === 'low') {
+    warningMessage = `⚠️ You have ${userCredits.remaining} credits remaining. Consider upgrading or contact devang@saai.dev for more credits.`;
+  } else if (type === 'insufficient') {
+    warningMessage = `🚨 Insufficient credits! You need more credits to use this feature. Contact devang@saai.dev for more credits.`;
+  } else {
+    warningMessage = `🚨 You've reached your credit limit! Please upgrade or contact devang@saai.dev to continue using Sa.AI.`;
+  }
+  
+  showStatus(warningMessage, 'warning');
+  
+  // Show modal for low credits
+  if (type === 'low') {
+    showCreditWarningModal();
+  } else if (type === 'insufficient') {
+    showInsufficientCreditsModal();
+  }
+}
+
+// Show credit limit reached modal
+function showCreditLimitReached() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3>🚨 Credit Limit Reached</h3>
+        <button class="task-modal-close" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">💳</div>
+          <div style="font-size: 18px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 600;">
+            You've used all 1000 credits!
+          </div>
+          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px; line-height: 1.5;">
+            To continue using Sa.AI, you can:
+            <br>• Contact devang@saai.dev for more credits
+            <br>• Wait for credit reset (if applicable)
+            <br>• Upgrade your plan
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button style="flex: 1; padding: 12px; background: var(--saai-accent); border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="this.closest('.task-modal-overlay').remove()">Close</button>
+          <button style="flex: 1; padding: 12px; background: var(--saai-primary); color: white; border: none; border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="window.open('mailto:devang@saai.dev?subject=Credit Request&body=Hi Devang, I need more credits for Sa.AI. Please let me know how to proceed.', '_blank')">Contact Devang</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+// Show credit warning modal
+function showCreditWarningModal() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3>⚠️ Low Credits Warning</h3>
+        <button class="task-modal-close" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+          <div style="font-size: 18px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 600;">
+            Only ${userCredits.remaining} credits remaining!
+          </div>
+          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px; line-height: 1.5;">
+            You're running low on credits. Consider:
+            <br>• Contacting devang@saai.dev for more credits
+            <br>• Using features more efficiently
+            <br>• Planning your usage
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button style="flex: 1; padding: 12px; background: var(--saai-accent); border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="this.closest('.task-modal-overlay').remove()">Continue</button>
+          <button style="flex: 1; padding: 12px; background: var(--saai-primary); color: white; border: none; border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="window.open('mailto:devang@saai.dev?subject=Credit Request&body=Hi Devang, I need more credits for Sa.AI. Please let me know how to proceed.', '_blank')">Request Credits</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
+// Show insufficient credits modal
+function showInsufficientCreditsModal() {
+  const modal = document.createElement('div');
+  modal.className = 'task-modal-overlay';
+  modal.innerHTML = `
+    <div class="task-modal-content">
+      <div class="task-modal-header">
+        <h3>🚨 Insufficient Credits</h3>
+        <button class="task-modal-close" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+      </div>
+      <div class="task-modal-body">
+        <div style="text-align: center; padding: 20px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">💳</div>
+          <div style="font-size: 18px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 600;">
+            Not enough credits!
+          </div>
+          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px; line-height: 1.5;">
+            You have ${userCredits.remaining} credits remaining, but this feature requires more.
+            <br><br>
+            To continue using Sa.AI, contact devang@saai.dev for more credits.
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px;">
+          <button style="flex: 1; padding: 12px; background: var(--saai-accent); border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="this.closest('.task-modal-overlay').remove()">Close</button>
+          <button style="flex: 1; padding: 12px; background: var(--saai-primary); color: white; border: none; border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="window.open('mailto:devang@saai.dev?subject=Credit Request&body=Hi Devang, I need more credits for Sa.AI. Please let me know how to proceed.', '_blank')">Request Credits</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+async function sendCreditUpdateToBackend(feature, amount) {
+  try {
+    const response = await fetch('https://dxb2025.app.n8n.cloud/webhook/credit-tracking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getJWTToken()}`
+      },
+      body: JSON.stringify({
+        feature: feature,
+        creditsUsed: amount,
+        timestamp: Date.now(),
+        userCredits: userCredits
+      })
+    });
+    
+    if (!response.ok) {
+      debugError('Failed to send credit update to backend:', response.status);
+    }
+  } catch (error) {
+    debugError('Error sending credit update to backend:', error);
+  }
+}
+
+// Get JWT token from storage
+async function getJWTToken() {
+  const storage = await chrome.storage.local.get(['jwtToken']);
+  return storage.jwtToken;
+}
+
+// Load user credits from storage
+async function loadUserCredits() {
+  const storage = await chrome.storage.local.get(['userCredits']);
+  if (storage.userCredits) {
+    userCredits = storage.userCredits;
+  }
+  updateCreditDisplay();
+}
+
+// Initialize credit system
+async function initializeCreditSystem() {
+  await loadUserCredits();
+  debugLog('Credit system initialized:', userCredits);
+}
 
 function startOAuthFlow() {
   debugLog('Starting OAuth flow');
