@@ -4681,7 +4681,7 @@ async function sendCreditUpdateToBackend(feature, amount) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getJWTToken()}`
+        'Authorization': `Bearer ${await ensureValidJWTToken()}`
       },
       body: JSON.stringify({
         feature: feature,
@@ -4703,6 +4703,59 @@ async function sendCreditUpdateToBackend(feature, amount) {
 async function getJWTToken() {
   const storage = await chrome.storage.local.get(['jwtToken']);
   return storage.jwtToken;
+}
+
+// Check if JWT token is expired (parse JWT payload for exp claim)
+async function isJWTTokenExpired(jwtToken) {
+  try {
+    if (!jwtToken) return true;
+    
+    // Decode JWT payload (base64url decode)
+    const parts = jwtToken.split('.');
+    if (parts.length !== 3) return true;
+    
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const exp = payload.exp;
+    
+    if (!exp) return false; // No expiration claim, assume valid
+    
+    // Check if token expires within next 5 minutes (buffer for refresh)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const bufferTime = 5 * 60; // 5 minutes
+    
+    return (exp - currentTime) < bufferTime;
+  } catch (error) {
+    debugError('Error checking JWT expiration:', error);
+    return true; // If we can't parse it, assume expired
+  }
+}
+
+// Auto-refresh token by requesting background script to handle refresh
+async function ensureValidJWTToken() {
+  const jwtToken = await getJWTToken();
+  
+  if (!jwtToken || await isJWTTokenExpired(jwtToken)) {
+    debugLog('JWT token expired or missing, requesting refresh from background script');
+    
+    try {
+      // Request background script to refresh the token
+      const response = await chrome.runtime.sendMessage({
+        action: 'refreshToken'
+      });
+      
+      if (response.success) {
+        debugLog('Token refreshed successfully via background script');
+        return await getJWTToken(); // Get the newly stored token
+      } else {
+        throw new Error('Token refresh failed');
+      }
+    } catch (error) {
+      debugError('Token refresh failed:', error);
+      throw error;
+    }
+  }
+  
+  return jwtToken;
 }
 
 // Load user credits from storage
@@ -4937,7 +4990,7 @@ async function showTaskModal() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getJWTToken()}`
+        'Authorization': `Bearer ${await ensureValidJWTToken()}`
       },
       body: JSON.stringify({
         userId: userId,
@@ -5194,7 +5247,7 @@ function addTaskModalEventListeners(modal) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${await getJWTToken()}`
+              'Authorization': `Bearer ${await ensureValidJWTToken()}`
             },
             body: JSON.stringify({
               userId: userId,
@@ -5308,7 +5361,7 @@ async function addManualTask(taskText, priority = 'medium') {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await getJWTToken()}`
+        'Authorization': `Bearer ${await ensureValidJWTToken()}`
       },
       body: JSON.stringify({
         userId: userId,

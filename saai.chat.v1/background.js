@@ -59,6 +59,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .then(response => sendResponse({success: true, data: response}))
             .catch(error => sendResponse({success: false, error: error.message}));
         return true;
+    } else if (request.action === 'refreshToken') {
+        refreshJWTToken()
+            .then(token => sendResponse({success: true, token: token}))
+            .catch(error => sendResponse({success: false, error: error.message}));
+        return true;
     }
 });
 
@@ -88,13 +93,101 @@ async function getJWTToken() {
     return jwtToken;
 }
 
-// Refresh JWT token by re-initiating OAuth flow
+// Get stored user ID from storage
+async function getStoredUserId() {
+    const { userId } = await chrome.storage.local.get(['userId']);
+    return userId;
+}
+
+// Get refresh token from storage
+async function getRefreshToken() {
+    const { refreshToken } = await chrome.storage.local.get(['refreshToken']);
+    return refreshToken;
+}
+
+// Check if JWT token is expired (parse JWT payload for exp claim)
+async function isJWTTokenExpired(jwtToken) {
+    try {
+        if (!jwtToken) return true;
+        
+        // Decode JWT payload (base64url decode)
+        const parts = jwtToken.split('.');
+        if (parts.length !== 3) return true;
+        
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const exp = payload.exp;
+        
+        if (!exp) return false; // No expiration claim, assume valid
+        
+        // Check if token expires within next 5 minutes (buffer for refresh)
+        const currentTime = Math.floor(Date.now() / 1000);
+        const bufferTime = 5 * 60; // 5 minutes
+        
+        return (exp - currentTime) < bufferTime;
+    } catch (error) {
+        debugError('Error checking JWT expiration:', error);
+        return true; // If we can't parse it, assume expired
+    }
+}
+
+// Auto-refresh token if it's expired or getting close to expiration
+async function ensureValidJWTToken() {
+    const jwtToken = await getJWTToken();
+    
+    if (!jwtToken || await isJWTTokenExpired(jwtToken)) {
+        debugLog('JWT token expired or missing, refreshing...');
+        return await refreshJWTToken();
+    }
+    
+    return jwtToken;
+}
+
+// Refresh JWT token by calling n8n refresh endpoint first, then fallback to OAuth
 async function refreshJWTToken() {
     try {
-        debugLog('JWT token expired, re-initiating OAuth flow');
+        debugLog('JWT token expired, attempting refresh via n8n');
+        
+        // Step 1: Try to refresh token using n8n refresh endpoint
+        const currentUserId = await getStoredUserId();
+        if (currentUserId) {
+            try {
+                const refreshResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/refresh', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: currentUserId,
+                        refreshToken: await getRefreshToken()
+                    })
+                });
+                
+                if (refreshResponse.ok) {
+                    const refreshData = await refreshResponse.json();
+                    if (refreshData.jwt || refreshData.jwtToken) {
+                        const newJwtToken = refreshData.jwt || refreshData.jwtToken;
+                        debugLog('JWT token refreshed successfully via n8n refresh endpoint');
+                        
+                        // Store the new token
+                        await chrome.storage.local.set({
+                            jwtToken: newJwtToken,
+                            refreshToken: refreshData.refreshToken || await getRefreshToken(),
+                            userId: refreshData.userId || currentUserId
+                        });
+                        
+                        return newJwtToken;
+                    }
+                }
+            } catch (refreshError) {
+                debugLog('n8n refresh endpoint failed, falling back to OAuth:', refreshError.message);
+            }
+        }
+        
+        // Step 2: Fallback to full OAuth flow if refresh endpoint fails
+        debugLog('Refresh endpoint unavailable, re-initiating full OAuth flow');
         
         // Clear existing tokens
-        await chrome.storage.local.remove(['jwtToken', 'isConnected']);
+        await chrome.storage.local.remove(['jwtToken', 'refreshToken', 'isConnected']);
         
         // Re-initiate the full OAuth flow
         const oauthResult = await handleOAuthFlow();
@@ -121,8 +214,8 @@ async function handleN8NRequest(data) {
         return await handleOAuthFlow();
     }
     
-    // Get JWT token for authenticated requests
-    const jwtToken = await getJWTToken();
+    // Get and validate JWT token for authenticated requests (auto-refresh if needed)
+    const jwtToken = await ensureValidJWTToken();
     if (!jwtToken) {
         throw new Error('No JWT token found. Please authenticate first.');
     }
@@ -365,10 +458,11 @@ async function handleOAuthFlow() {
                     
                     try {
                         // Step 4: n8n redirects back to extension with JWT token
-                        // Extract JWT token and user ID from redirect URL
+                        // Extract JWT token, refresh token, and user ID from redirect URL
                         const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
                         const jwtToken = urlParams.get('jwt_token');
                         const userId = urlParams.get('user_id');
+                        const refreshToken = urlParams.get('refresh_token');
                         const returnedState = urlParams.get('state');
                         
                         // Check if this is an error response
@@ -388,10 +482,11 @@ async function handleOAuthFlow() {
                         
                         debugLog('JWT token extracted:', jwtToken.substring(0, 20) + '...');
                         debugLog('User ID extracted:', userId);
+                        debugLog('Refresh token extracted:', refreshToken ? 'Present' : 'Not provided');
                         debugLog('State verified:', returnedState);
                         
-                        // Step 5: Store JWT token and user ID
-                        await chrome.storage.local.set({
+                        // Step 5: Store JWT token, refresh token, and user ID
+                        const storageData = {
                             isConnected: true,
                             userId: userId,
                             jwtToken: jwtToken,
@@ -400,7 +495,15 @@ async function handleOAuthFlow() {
                                 jwtToken: jwtToken,
                                 redirectUrl: redirectUrl
                             }
-                        });
+                        };
+                        
+                        // Store refresh token if available
+                        if (refreshToken) {
+                            storageData.refreshToken = refreshToken;
+                            storageData.oauthData.refreshToken = refreshToken;
+                        }
+                        
+                        await chrome.storage.local.set(storageData);
                         
                         debugLog('PKCE OAuth flow completed successfully');
                         resolve({ 
