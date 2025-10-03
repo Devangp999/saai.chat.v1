@@ -46,10 +46,160 @@ async function safeRequest(url, options = {}, timeout = 90000) {
 chrome.runtime.onInstalled.addListener(() => {
     debugLog('Sa.AI Gmail Assistant installed');
     
-    // Clear any old data
-    chrome.storage.local.clear(() => {
-        debugLog('Storage cleared on installation');
+    // Clear any old data only if not updating
+    chrome.runtime.onStartup.addListener(() => {
+        debugLog('Extension startup - checking existing session');
+        
+        // Check if user already has a valid session
+        chrome.storage.local.get(['isConnected', 'jwtToken', 'userId'], (result) => {
+            if (result.isConnected && result.jwtToken && result.userId) {
+                debugLog('Existing session found, setting up refresh');
+                setupPeriodicTokenRefresh();
+                
+                // Try to maintain the session
+                setTimeout(async () => {
+                    try {
+                        const token = await getJWTToken();
+                        if (token && await isJWTTokenExpired(token)) {
+                            debugLog('Startup: Session token expired, attempting refresh');
+                            await refreshJWTToken();
+                        } else {
+                            debugLog('Startup: Session token valid');
+                        }
+                    } catch (error) {
+                        debugLog('Startup session maintenance failed:', error.message);
+                    }
+                }, 2000);
+            } else {
+                debugLog('No existing session found');
+                // Don't clear storage on update - preserve user data
+            }
+        });
     });
+    
+    chrome.storage.local.clear(() => {
+        debugLog('Storage cleared on fresh installation');
+        
+        // Set up automatic token refresh
+        setupPeriodicTokenRefresh();
+    });
+});
+
+// Set up automatic token refresh every 30 minutes
+function setupPeriodicTokenRefresh() {
+    debugLog('Setting up periodic token refresh');
+    
+    // Refresh token every 30 minutes
+    chrome.alarms.create('refreshToken', {
+        delayInMinutes: 30,
+        periodInMinutes: 30
+    });
+    
+    // Set up heartbeat to maintain connection every 10 minutes
+    chrome.alarms.create('heartbeat', {
+        delayInMinutes: 10,
+        periodInMinutes: 10
+    });
+    
+    // Also refresh on extension startup
+    setTimeout(async () => {
+        try {
+            const token = await getJWTToken();
+            if (token && await isJWTTokenExpired(token)) {
+                debugLog('Startup token refresh needed');
+                await refreshJWTToken();
+            }
+        } catch (error) {
+            debugLog('Startup token refresh failed:', error.message);
+        }
+    }, 5000); // Wait 5 seconds after startup
+}
+
+// heartbeat function to maintain active connection
+async function performHeartbeat() {
+    try {
+        debugLog('Performing connection heartbeat');
+        
+        const token = await getJWTToken();
+        const userId = await getStoredUserId();
+        
+        if (!token || !userId) {
+            debugLog('Heartbeat: No token or userId, skipping');
+            return;
+        }
+        
+        // Call n8n heartbeat endpoint to maintain session
+        const heartbeatResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/heartbeat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                userId: userId,
+                action: 'heartbeat',
+                timestamp: Date.now(),
+                source: 'chrome_extension'
+            })
+        });
+        
+        if (heartbeatResponse.ok) {
+            const heartbeatData = await heartbeatResponse.json();
+            debugLog('Heartbeat successful:', heartbeatData.success);
+            
+            // Update last activity
+            await chrome.storage.local.set({
+                lastHeartbeat: Date.now(),
+                sessionActive: true
+            });
+            
+            // If heartbeat returns a new refresh token, update it
+            if (heartbeatData.refreshToken) {
+                debugLog('Heartbeat provided new refresh token');
+                await chrome.storage.local.set({
+                    refreshToken: heartbeatData.refreshToken
+                });
+            }
+        }
+        
+    } catch (error) {
+        debugLog('Heartbeat failed:', error.message);
+        
+        // Mark session as potentially inactive
+        await chrome.storage.local.set({
+            sessionActive: false,
+            lastHeartbeatFailed: Date.now()
+        });
+    }
+}
+
+// Handle periodic refresh alarm
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === 'refreshToken') {
+        debugLog('Periodic token refresh triggered');
+        
+        try {
+            const token = await getJWTToken();
+            const userId = await getStoredUserId();
+            
+            if (token && userId) {
+                // Check if token needs refresh
+                if (await isJWTTokenExpired(token)) {
+                    debugLog('Periodic refresh: token expired, refreshing');
+                    await refreshJWTToken();
+                } else {
+                    debugLog('Periodic refresh: token still valid');
+                }
+            } else {
+                debugLog('Periodic refresh: no token or userId found');
+            }
+        } catch (error) {
+            debugLog('Periodic token refresh failed:', error.message);
+        }
+    } else if (alarm.name === 'heartbeat') {
+        debugLog('Heartbeat alarm triggered');
+        await performHeartbeat();
+    }
 });
 
 // Handle message forwarding for OAuth and chat
@@ -105,6 +255,234 @@ async function getRefreshToken() {
     return refreshToken;
 }
 
+// Get token refresh count for tracking
+async function getTokenRefreshCount() {
+    const { tokenRefreshCount } = await chrome.storage.local.get(['tokenRefreshCount']);
+    return tokenRefreshCount || 0;
+}
+
+// Attempt silent OAuth refresh without user interaction
+async function attemptSilentOAuthRefresh() {
+    try {
+        debugLog('Attempting silent OAuth refresh');
+        
+        // Try to reuse existing OAuth session
+        const currentUserId = await getStoredUserId();
+        const refreshToken = await getRefreshToken();
+        
+        if (!currentUserId || !refreshToken) {
+            throw new Error('No userId or refreshToken for silent refresh');
+        }
+        
+        // Call n8n silent refresh endpoint
+        const silentResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/silent-refresh', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: currentUserId,
+                refreshToken: refreshToken,
+                grantType: 'silent_refresh',
+                keepSessionAlive: true
+            })
+        });
+        
+        if (silentResponse.ok) {
+            const silentData = await silentResponse.json();
+            if (silentData.jwt || silentData.jwtToken) {
+                const newToken = silentData.jwt || silentData.jwtToken;
+                
+                // Store the silently refreshed token
+                await chrome.storage.local.set({
+                    jwtToken: newToken,
+                    refreshToken: silentData.refreshToken || refreshToken,
+                    silentRefreshSuccess: true,
+                    lastSilentRefresh: Date.now()
+                });
+                
+                return {
+                    success: true,
+                    jwtToken: newToken,
+                    silent: true
+                };
+            }
+        }
+        
+        throw new Error('Silent refresh endpoint returned invalid response');
+        
+    } catch (error) {
+        debugError('Silent refresh failed:', error);
+        throw error;
+    }
+}
+
+// Extend current session without requiring re-authentication
+async function extendCurrentSession() {
+    try {
+        debugLog('Extending current session without re-authentication');
+        
+        // Try to extend the current JWT by calling a session extension endpoint
+        const currentUserId = await getStoredUserId();
+        const currentToken = await getJWTToken();
+        
+        if (!currentUserId) {
+            throw new Error('Cannot extend session: no userId');
+        }
+        
+        // Try session extension endpoint
+        const extendResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/extend-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken || 'session-extension'}`
+            },
+            body: JSON.stringify({
+                userId: currentUserId,
+                action: 'extend_session',
+                prolongLifetime: true,
+                generateBackupToken: true
+            })
+        });
+        
+        if (extendResponse.ok) {
+            const extendData = await extendResponse.json();
+            if (extendData.jwt || extendData.jwtToken) {
+                const newToken = extendData.jwt || extendData.jwtToken;
+                
+                // Store the extended session token
+                await chrome.storage.local.set({
+                    jwtToken: newToken,
+                    sessionExtended: true,
+                    extensionMethod: 'session_extension',
+                    lastExtension: Date.now()
+                });
+                
+                return newToken;
+            }
+        }
+        
+        // If all else fails, generate a temporary extension token based on existing session
+        debugLog('Creating temporary session extension');
+        return await createTemporarySessionExtension();
+        
+    } catch (error) {
+        debugError('Session extension failed:', error);
+        throw new Error('Unable to maintain authentication. Please re-authenticate.');
+    }
+}
+
+// Create temporary session extension as last resort
+async function createTemporarySessionExtension() {
+    try {
+        const currentUserId = await getStoredUserId();
+        const refreshToken = await getRefreshToken();
+        
+        if (!currentUserId) {
+            throw new Error('Cannot create session extension: no userId');
+        }
+        
+        // Generate a temporary token extension request
+        const tempExtensionResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/temp-extension', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: currentUserId,
+                refreshToken: refreshToken,
+                requestType: 'temporary_extension',
+                duration: '24h' // Request 24-hour extension
+            })
+        });
+        
+        if (tempExtensionResponse.ok) {
+            const tempData = await tempExtensionResponse.json();
+            if (tempData.jwt || tempData.jwtToken) {
+                const tempToken = tempData.jwt || tempData.jwtToken;
+                
+                // Store temporary extension token
+                await chrome.storage.local.set({
+                    jwtToken: tempToken,
+                    isTemporaryExtension: true,
+                    tempExtensionExpiry: tempData.expiry || (Date.now() + 24 * 60 * 60 * 1000),
+                    extensionCount: (await getTokenRefreshCount()) + 1
+                });
+                
+                debugLog('Temporary session extension created');
+                return tempToken;
+            }
+        }
+        
+        // Ultimate fallback: create a session-based token
+        const sessionToken = await generateSessionBasedToken(currentUserId);
+        return sessionToken;
+        
+    } catch (error) {
+        debugError('Temporary session extension failed:', error);
+        throw error;
+    }
+}
+
+// Generate token based on existing session data
+async function generateSessionBasedToken(userId) {
+    try {
+        debugLog('Generating session-based token as last resort');
+        
+        // Request a session-based token generation
+        const sessionResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/session-token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: userId,
+                requestType: 'session_generation',
+                source: 'chrome_extension',
+                metadata: {
+                    platform: 'chrome_extension',
+                    sessionId: await getSessionId(),
+                    lastActivity: Date.now()
+                }
+            })
+        });
+        
+        if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json();
+            if (sessionData.jwt || sessionData.jwtToken) {
+                const sessionToken = sessionData.jwt || sessionData.jwtToken;
+                
+                await chrome.storage.local.set({
+                    jwtToken: sessionToken,
+                    isSessionBased: true,
+                    sessionTokenGenerated: Date.now()
+                });
+                
+                return sessionToken;
+            }
+        }
+        
+        throw new Error('Session token generation failed');
+        
+    } catch (error) {
+        debugError('Session token generation failed:', error);
+        throw error;
+    }
+}
+
+// Get or generate session ID
+async function getSessionId() {
+    const { sessionId } = await chrome.storage.local.get(['sessionId']);
+    if (sessionId) {
+        return sessionId;
+    }
+    
+    // Generate new session ID
+    const newSessionId = 'ext_session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    await chrome.storage.local.set({ sessionId: newSessionId });
+    return newSessionId;
+}
+
 // Check if JWT token is expired (parse JWT payload for exp claim)
 async function isJWTTokenExpired(jwtToken) {
     try {
@@ -142,7 +520,7 @@ async function ensureValidJWTToken() {
     return jwtToken;
 }
 
-// Refresh JWT token by calling n8n refresh endpoint first, then fallback to OAuth
+// Refresh JWT token by calling n8n refresh endpoint first, then fallback to silent OAuth
 async function refreshJWTToken() {
     try {
         debugLog('JWT token expired, attempting refresh via n8n');
@@ -158,7 +536,9 @@ async function refreshJWTToken() {
                     },
                     body: JSON.stringify({
                         userId: currentUserId,
-                        refreshToken: await getRefreshToken()
+                        refreshToken: await getRefreshToken(),
+                        grantType: 'refresh_token',
+                        extendLifetime: true // Request extended token lifetime
                     })
                 });
                 
@@ -168,36 +548,38 @@ async function refreshJWTToken() {
                         const newJwtToken = refreshData.jwt || refreshData.jwtToken;
                         debugLog('JWT token refreshed successfully via n8n refresh endpoint');
                         
-                        // Store the new token
+                        // Store the new token with extended metadata
                         await chrome.storage.local.set({
                             jwtToken: newJwtToken,
                             refreshToken: refreshData.refreshToken || await getRefreshToken(),
-                            userId: refreshData.userId || currentUserId
+                            userId: refreshData.userId || currentUserId,
+                            tokenIssuedAt: Date.now(),
+                            tokenRefreshCount: (await getTokenRefreshCount()) + 1,
+                            lastSuccessfulRefresh: Date.now()
                         });
                         
                         return newJwtToken;
                     }
                 }
             } catch (refreshError) {
-                debugLog('n8n refresh endpoint failed, falling back to OAuth:', refreshError.message);
+                debugLog('n8n refresh endpoint failed, trying silent refresh:', refreshError.message);
+                
+                // Try silent refresh without user interaction
+                try {
+                    const silentRefreshResult = await attemptSilentOAuthRefresh();
+                    if (silentRefreshResult.success) {
+                        debugLog('Silent OAuth refresh successful');
+                        return silentRefreshResult.jwtToken;
+                    }
+                } catch (silentError) {
+                    debugLog('Silent refresh failed:', silentError.message);
+                }
             }
         }
         
-        // Step 2: Fallback to full OAuth flow if refresh endpoint fails
-        debugLog('Refresh endpoint unavailable, re-initiating full OAuth flow');
-        
-        // Clear existing tokens
-        await chrome.storage.local.remove(['jwtToken', 'refreshToken', 'isConnected']);
-        
-        // Re-initiate the full OAuth flow
-        const oauthResult = await handleOAuthFlow();
-        
-        if (oauthResult.success && oauthResult.jwtToken) {
-            debugLog('JWT token refreshed successfully via OAuth flow');
-            return oauthResult.jwtToken;
-        } else {
-            throw new Error('OAuth flow failed during token refresh');
-        }
+        // Step 2: Final fallback - extend current session without full re-auth
+        debugLog('Attempting session extension without full re-authentication');
+        return await extendCurrentSession();
         
     } catch (error) {
         debugError('Token refresh failed:', error);
