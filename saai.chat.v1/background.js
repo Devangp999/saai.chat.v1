@@ -278,7 +278,8 @@ async function attemptSilentOAuthRefresh() {
         const silentResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/silent-refresh', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${await getJWTToken()}`
             },
             body: JSON.stringify({
                 userId: currentUserId,
@@ -386,7 +387,8 @@ async function createTemporarySessionExtension() {
         const tempExtensionResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/temp-extension', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${await getJWTToken()}`
             },
             body: JSON.stringify({
                 userId: currentUserId,
@@ -433,7 +435,8 @@ async function generateSessionBasedToken(userId) {
         const sessionResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/session-token', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${await getJWTToken()}`
             },
             body: JSON.stringify({
                 userId: userId,
@@ -532,7 +535,8 @@ async function refreshJWTToken() {
                 const refreshResponse = await safeRequest('https://connector.saai.dev/webhook/session/renew', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await getJWTToken()}` // Include current JWT for verification
                     },
                     body: JSON.stringify({
                         userId: currentUserId,
