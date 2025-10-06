@@ -829,12 +829,17 @@ async function handleOAuthFlow() {
         debugLog('Starting PKCE OAuth flow with n8n');
         
         // Step 1: Call n8n /oauth/start endpoint to get PKCE parameters
+        debugLog('Calling n8n /oauth/start endpoint...');
         const startResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/start', {
             method: 'GET'
         });
         
         debugLog('PKCE start response status:', startResponse.status);
         debugLog('PKCE start response headers:', Object.fromEntries(startResponse.headers.entries()));
+        
+        if (!startResponse.ok) {
+            throw new Error(`n8n /oauth/start failed with status ${startResponse.status}: ${startResponse.statusText}`);
+        }
         
         const startData = await startResponse.json();
         debugLog('PKCE start response data:', startData);
@@ -873,16 +878,18 @@ async function handleOAuthFlow() {
         
         debugLog('Launching OAuth flow with PKCE, redirect URI:', redirectUri);
         debugLog('Using n8n state:', startData.state);
+        debugLog('Google OAuth URL:', authUrl);
         
         // Step 3: Launch OAuth flow
         return new Promise((resolve, reject) => {
+            debugLog('Launching Chrome identity web auth flow...');
             chrome.identity.launchWebAuthFlow({
                 url: authUrl,
                 interactive: true
             }, async function(redirectUrl) {
                 if (chrome.runtime.lastError) {
                     debugError('OAuth failed:', chrome.runtime.lastError);
-                    reject(new Error(chrome.runtime.lastError.message));
+                    reject(new Error(`OAuth failed: ${chrome.runtime.lastError.message}`));
                     return;
                 }
                 
