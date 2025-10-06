@@ -129,7 +129,7 @@ async function performHeartbeat() {
         }
         
         // Call n8n heartbeat endpoint to maintain session
-        const heartbeatResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/heartbeat', {
+        const heartbeatResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/heartbeat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -275,7 +275,7 @@ async function attemptSilentOAuthRefresh() {
         }
         
         // Call n8n silent refresh endpoint
-        const silentResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/silent-refresh', {
+        const silentResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/silent-refresh', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -331,7 +331,7 @@ async function extendCurrentSession() {
         }
         
         // Try session extension endpoint
-        const extendResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/extend-session', {
+        const extendResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/extend-session', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -383,7 +383,7 @@ async function createTemporarySessionExtension() {
         }
         
         // Generate a temporary token extension request
-        const tempExtensionResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/temp-extension', {
+        const tempExtensionResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/temp-extension', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -430,7 +430,7 @@ async function generateSessionBasedToken(userId) {
         debugLog('Generating session-based token as last resort');
         
         // Request a session-based token generation
-        const sessionResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/session-token', {
+        const sessionResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/session-token', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -529,7 +529,7 @@ async function refreshJWTToken() {
         const currentUserId = await getStoredUserId();
         if (currentUserId) {
             try {
-                const refreshResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/refresh', {
+                const refreshResponse = await safeRequest('https://connector.saai.dev/webhook/session/renew', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -614,13 +614,13 @@ async function handleN8NRequest(data) {
                     query: payload.query
                 });
                 // Use the same webhook but with thread context
-                url = 'https://dxb2025.app.n8n.cloud/webhook/Chatbot-Nishant';
+                url = 'https://connector.saai.dev/webhook/Chatbot-Nishant';
             } else {
-                url = 'https://dxb2025.app.n8n.cloud/webhook/Chatbot-Nishant';
+                url = 'https://connector.saai.dev/webhook/Chatbot-Nishant';
             }
             break;
         case 'task':
-            url = 'https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant';
+            url = 'https://connector.saai.dev/webhook/Tak-Management';
             break;
         default:
             throw new Error('Invalid endpoint');
@@ -748,7 +748,7 @@ async function handleFallbackResponse(endpoint, payload) {
         
         // Find the best matching response
         const lowerMessage = userMessage.toLowerCase();
-        let response = 'I understand you\'re asking about "' + userMessage + '". The n8n webhook is currently unavailable. Please check your webhook configuration at: https://dxb2025.app.n8n.cloud/webhook/Chatbot-Nishant';
+        let response = 'I understand you\'re asking about "' + userMessage + '". The n8n webhook is currently unavailable. Please check your webhook configuration at: https://connector.saai.dev/webhook/Chatbot-Nishant';
         
         for (const [key, value] of Object.entries(mockResponses)) {
             if (lowerMessage.includes(key)) {
@@ -778,7 +778,7 @@ async function handleOAuthFlow() {
         debugLog('Starting PKCE OAuth flow with n8n');
         
         // Step 1: Call n8n /oauth/start endpoint to get PKCE parameters
-        const startResponse = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/oauth/start', {
+        const startResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/start', {
             method: 'GET'
         });
         
@@ -795,7 +795,7 @@ async function handleOAuthFlow() {
         
         // Step 2: Build Google OAuth URL with n8n's PKCE parameters
         const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
-        const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback';
+        const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
         const scopes = [
             'email',
             'profile',
@@ -916,7 +916,7 @@ async function handleOAuthFlow() {
 // Original OAuth flow (fallback)
 async function handleOriginalOAuthFlow() {
     const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
-    const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback';
+    const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
     const scopes = 'email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +

@@ -15,7 +15,7 @@
   "host_permissions": [
     "https://mail.google.com/*",
     "https://www.googleapis.com/*",
-    "https://dxb2025.app.n8n.cloud/*",
+    "https://connector.saai.dev/*",
     "https://accounts.google.com/*"
   ],
   "oauth2": {

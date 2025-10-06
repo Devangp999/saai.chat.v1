@@ -4677,7 +4677,7 @@ function showInsufficientCreditsModal() {
 }
 async function sendCreditUpdateToBackend(feature, amount) {
   try {
-    const response = await fetch('https://dxb2025.app.n8n.cloud/webhook/credit-tracking', {
+    const response = await fetch('https://connector.saai.dev/webhook/credit-tracking', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -4986,7 +4986,7 @@ async function showTaskModal() {
     }
     
     // Call the webhook to extract tasks
-    const response = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
+    const response = await safeRequest('https://connector.saai.dev/webhook/Tak-Management', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -5243,7 +5243,7 @@ function addTaskModalEventListeners(modal) {
           }
           
           // Send delete task request to webhook
-          const response = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
+          const response = await safeRequest('https://connector.saai.dev/webhook/Tak-Management', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -5357,7 +5357,7 @@ async function addManualTask(taskText, priority = 'medium') {
     }
     
     // Send manual task to webhook for Supabase storage
-    const response = await safeRequest('https://dxb2025.app.n8n.cloud/webhook/TaskManagement-Nishant', {
+    const response = await safeRequest('https://connector.saai.dev/webhook/Tak-Management', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
