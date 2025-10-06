@@ -846,7 +846,7 @@ async function handleOAuthFlow() {
         
         // Step 2: Build Google OAuth URL with n8n's PKCE parameters
         const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
-        const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
+        const redirectUri = 'https://dxb2025.app.n8n.cloud/webhook/oauth/callback';
         const scopes = [
             'email',
             'profile',
