@@ -4677,7 +4677,10 @@ function showInsufficientCreditsModal() {
 }
 async function sendCreditUpdateToBackend(feature, amount) {
   try {
-    const response = await fetch('https://connector.saai.dev/webhook/credit-tracking', {
+    debugLog('Sending credit update to backend:', { feature, amount });
+    
+    // Use safeRequestWithRetry for automatic token refresh on 401/402
+    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/credit-tracking', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -4693,6 +4696,8 @@ async function sendCreditUpdateToBackend(feature, amount) {
     
     if (!response.ok) {
       debugError('Failed to send credit update to backend:', response.status);
+    } else {
+      debugLog('Credit update sent successfully');
     }
   } catch (error) {
     debugError('Error sending credit update to backend:', error);
@@ -4756,6 +4761,78 @@ async function ensureValidJWTToken() {
   }
   
   return jwtToken;
+}
+
+// Auto-retry request with JWT refresh on 401/402 errors
+async function safeRequestWithRetry(url, options) {
+  try {
+    const response = await safeRequest(url, options);
+    
+    // If 401/402 error, automatically refresh token and retry
+    if (!response.ok && (response.status === 401 || response.status === 402)) {
+      debugLog('Request failed with 401/402, automatically refreshing token and retrying');
+      
+      try {
+        // Request background script to refresh token
+        const refreshResponse = await chrome.runtime.sendMessage({
+          action: 'refreshToken'
+        });
+        
+        if (refreshResponse.success) {
+          debugLog('Token refreshed successfully, retrying request');
+          
+          // Update Authorization header with new token
+          const newToken = await ensureValidJWTToken();
+          const retryOptions = {
+            ...options,
+            headers: {
+              ...options.headers,
+              'Authorization': `Bearer ${newToken}`
+            }
+          };
+          
+          // Retry the request
+          const retryResponse = await safeRequest(url, retryOptions);
+          
+          if (retryResponse.ok) {
+            debugLog('Request retry successful after token refresh');
+            return retryResponse;
+          } else {
+            debugLog('Retry still failed, attempting second retry');
+            
+            // Second retry with fresh token validation
+            const finalToken = await ensureValidJWTToken();
+            const finalRetryOptions = {
+              ...options,
+              headers: {
+                ...options.headers,
+                'Authorization': `Bearer ${finalToken}`
+              }
+            };
+            
+            const finalRetryResponse = await safeRequest(url, finalRetryOptions);
+            
+            if (finalRetryResponse.ok) {
+              debugLog('Second retry successful');
+              return finalRetryResponse;
+            } else {
+              throw new Error(`Request failed after token refresh attempts: ${finalRetryResponse.status}`);
+            }
+          }
+        } else {
+          throw new Error('Token refresh failed');
+        }
+      } catch (refreshError) {
+        debugError('Automatic token refresh failed:', refreshError);
+        throw new Error('Service temporarily unavailable. Please try again.');
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    debugError('Request with retry failed:', error);
+    throw error;
+  }
 }
 
 // Load user credits from storage
@@ -4986,7 +5063,7 @@ async function showTaskModal() {
     }
     
     // Call the webhook to extract tasks
-    const response = await safeRequest('https://connector.saai.dev/webhook/Tak-Management', {
+    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Tak-Management', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -5243,7 +5320,7 @@ function addTaskModalEventListeners(modal) {
           }
           
           // Send delete task request to webhook
-          const response = await safeRequest('https://connector.saai.dev/webhook/Tak-Management', {
+          const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Tak-Management', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -5357,7 +5434,7 @@ async function addManualTask(taskText, priority = 'medium') {
     }
     
     // Send manual task to webhook for Supabase storage
-    const response = await safeRequest('https://connector.saai.dev/webhook/Tak-Management', {
+    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Tak-Management', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

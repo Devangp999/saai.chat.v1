@@ -648,13 +648,15 @@ async function handleN8NRequest(data) {
     
     if (!response.ok) {
             // Handle specific error cases
-            if (response.status === 401) {
-                console.log('[Background] JWT token expired, attempting refresh');
-                // Try to refresh the token
+            if (response.status === 401 || response.status === 402) {
+                console.log('[Background] JWT token expired (401/402), attempting automatic refresh and retry');
+                
                 try {
-                    await refreshJWTToken();
-                    // Retry the request with new token
-                    const newJwtToken = await getJWTToken();
+                    // Automatically refresh the token
+                    const newJwtToken = await refreshJWTToken();
+                    debugLog('Token refreshed successfully, retrying original request');
+                    
+                    // Retry the original request with new token
                     const retryResponse = await safeRequest(url, {
                         method: 'POST',
                         headers: {
@@ -667,14 +669,59 @@ async function handleN8NRequest(data) {
                     
                     if (retryResponse.ok) {
                         const retryResult = await retryResponse.json();
+                        debugLog('Request retry successful after token refresh');
                         return retryResult;
                     } else {
-                        throw new Error('Token refresh failed');
+                        // If retry still fails, try one more time with fresh token
+                        debugLog('First retry failed, attempting second retry');
+                        const finalJwtToken = await ensureValidJWTToken();
+                        const finalRetryResponse = await safeRequest(url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Authorization': `Bearer ${finalJwtToken}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        if (finalRetryResponse.ok) {
+                            const finalResult = await finalRetryResponse.json();
+                            debugLog('Second retry successful');
+                            return finalResult;
+                        } else {
+                            throw new Error(`Request failed after token refresh attempts: ${finalRetryResponse.status}`);
+                        }
                     }
                 } catch (refreshError) {
-                    console.error('[Background] Token refresh failed:', refreshError);
-                    throw new Error('Authentication expired. Please reconnect your account.');
+                    debugError('Automatic token refresh failed:', refreshError);
+                    // Don't expose JWT errors to user - return a generic message
+                    throw new Error('Service temporarily unavailable. Please try again.');
                 }
+            } else if (response.status === 403) {
+                debugLog('Access denied (403) - token may be invalid');
+                // Try to refresh token even for 403 errors
+                try {
+                    const newJwtToken = await refreshJWTToken();
+                    const retryResponse = await safeRequest(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${newJwtToken}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (retryResponse.ok) {
+                        const retryResult = await retryResponse.json();
+                        debugLog('Request successful after 403 token refresh');
+                        return retryResult;
+                    }
+                } catch (retryError) {
+                    debugLog('403 retry failed:', retryError.message);
+                }
+                throw new Error('Access denied. Please check your permissions.');
             } else if (response.status === 404) {
                 console.error('[Background] n8n webhook not found (404)');
                 // Return a fallback response instead of throwing error
