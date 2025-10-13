@@ -43,6 +43,11 @@ async function safeRequest(url, options = {}, timeout = 90000) {
   }
 }
 
+// Feature flags
+const FEATURES = {
+    heartbeatEnabled: false
+};
+
 chrome.runtime.onInstalled.addListener(() => {
     debugLog('Sa.AI Gmail Assistant installed');
     
@@ -95,11 +100,14 @@ function setupPeriodicTokenRefresh() {
         periodInMinutes: 30
     });
     
-    // Set up heartbeat to maintain connection every 10 minutes
-    chrome.alarms.create('heartbeat', {
-        delayInMinutes: 10,
-        periodInMinutes: 10
-    });
+    // Heartbeat disabled unless explicitly enabled
+    if (FEATURES.heartbeatEnabled) {
+        // Set up heartbeat to maintain connection every 10 minutes
+        chrome.alarms.create('heartbeat', {
+            delayInMinutes: 10,
+            periodInMinutes: 10
+        });
+    }
     
     // Also refresh on extension startup
     setTimeout(async () => {
@@ -115,8 +123,13 @@ function setupPeriodicTokenRefresh() {
     }, 5000); // Wait 5 seconds after startup
 }
 
-// heartbeat function to maintain active connection
+// heartbeat function to maintain active connection (disabled by default)
 async function performHeartbeat() {
+    if (!FEATURES.heartbeatEnabled) {
+        debugLog('Heartbeat skipped (disabled)');
+        return;
+    }
+
     try {
         debugLog('Performing connection heartbeat');
         
@@ -197,24 +210,73 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
             debugLog('Periodic token refresh failed:', error.message);
         }
     } else if (alarm.name === 'heartbeat') {
-        debugLog('Heartbeat alarm triggered');
+        // Only run when enabled
         await performHeartbeat();
     }
 });
 
 // Handle message forwarding for OAuth and chat
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('[SaAI-BG] Message received:', request);
+    debugLog('Message received:', request);
+    
     if (request.action === 'sendToN8N') {
+        console.log('[SaAI-BG] Processing sendToN8N request:', request.data);
+        debugLog('Processing sendToN8N request:', request.data);
+        
+        if (request.data.endpoint === 'oauth') {
+            console.log('[SaAI-BG] OAuth endpoint detected - calling handleOAuthFlow()');
+            debugLog('OAuth endpoint detected - calling handleOAuthFlow()');
+        }
+        
         handleN8NRequest(request.data)
-            .then(response => sendResponse({success: true, data: response}))
-            .catch(error => sendResponse({success: false, error: error.message}));
+            .then(response => {
+                console.log('[SaAI-BG] sendToN8N success response:', response);
+                debugLog('sendToN8N success response:', response);
+                sendResponse({success: true, data: response});
+            })
+            .catch(error => {
+                console.error('[SaAI-BG] sendToN8N error:', error);
+                debugError('sendToN8N error:', error);
+                sendResponse({success: false, error: error.message});
+            });
+        return true;
+    } else if (request.action === 'trackCredits') {
+        console.log('[SaAI-BG] Processing trackCredits request:', request.data);
+        debugLog('Processing trackCredits request:', request.data);
+        
+        handleCreditTracking(request.data)
+            .then(response => {
+                console.log('[SaAI-BG] trackCredits success response:', response);
+                debugLog('trackCredits success response:', response);
+                sendResponse({success: true, data: response});
+            })
+            .catch(error => {
+                console.error('[SaAI-BG] trackCredits error:', error);
+                debugError('trackCredits error:', error);
+                sendResponse({success: false, error: error.message});
+            });
         return true;
     } else if (request.action === 'refreshToken') {
+        console.log('[SaAI-BG] Processing refreshToken request');
+        debugLog('Processing refreshToken request');
         refreshJWTToken()
-            .then(token => sendResponse({success: true, token: token}))
-            .catch(error => sendResponse({success: false, error: error.message}));
+            .then(token => {
+                console.log('[SaAI-BG] refreshToken success:', token ? 'Token received' : 'No token');
+                debugLog('refreshToken success:', token ? 'Token received' : 'No token');
+                sendResponse({success: true, token: token});
+            })
+            .catch(error => {
+                console.error('[SaAI-BG] refreshToken error:', error);
+                debugError('refreshToken error:', error);
+                sendResponse({success: false, error: error.message});
+            });
         return true;
     }
+    
+    console.log('[SaAI-BG] Unknown message action:', request.action);
+    debugLog('Unknown message action:', request.action);
+    sendResponse({success: false, error: 'Unknown action'});
 });
 
 // Handle tab updates to inject content script only if needed
@@ -261,231 +323,6 @@ async function getTokenRefreshCount() {
     return tokenRefreshCount || 0;
 }
 
-// Attempt silent OAuth refresh without user interaction
-async function attemptSilentOAuthRefresh() {
-    try {
-        debugLog('Attempting silent OAuth refresh');
-        
-        // Try to reuse existing OAuth session
-        const currentUserId = await getStoredUserId();
-        const refreshToken = await getRefreshToken();
-        
-        if (!currentUserId || !refreshToken) {
-            throw new Error('No userId or refreshToken for silent refresh');
-        }
-        
-        // Call n8n silent refresh endpoint
-        const silentResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/silent-refresh', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${await getJWTToken()}`
-            },
-            body: JSON.stringify({
-                userId: currentUserId,
-                refreshToken: refreshToken,
-                grantType: 'silent_refresh',
-                keepSessionAlive: true
-            })
-        });
-        
-        if (silentResponse.ok) {
-            const silentData = await silentResponse.json();
-            if (silentData.jwt || silentData.jwtToken) {
-                const newToken = silentData.jwt || silentData.jwtToken;
-                
-                // Store the silently refreshed token
-                await chrome.storage.local.set({
-                    jwtToken: newToken,
-                    refreshToken: silentData.refreshToken || refreshToken,
-                    silentRefreshSuccess: true,
-                    lastSilentRefresh: Date.now()
-                });
-                
-                return {
-                    success: true,
-                    jwtToken: newToken,
-                    silent: true
-                };
-            }
-        }
-        
-        throw new Error('Silent refresh endpoint returned invalid response');
-        
-    } catch (error) {
-        debugError('Silent refresh failed:', error);
-        throw error;
-    }
-}
-
-// Extend current session without requiring re-authentication
-async function extendCurrentSession() {
-    try {
-        debugLog('Extending current session without re-authentication');
-        
-        // Try to extend the current JWT by calling a session extension endpoint
-        const currentUserId = await getStoredUserId();
-        const currentToken = await getJWTToken();
-        
-        if (!currentUserId) {
-            throw new Error('Cannot extend session: no userId');
-        }
-        
-        // Try session extension endpoint
-        const extendResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/extend-session', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentToken || 'session-extension'}`
-            },
-            body: JSON.stringify({
-                userId: currentUserId,
-                action: 'extend_session',
-                prolongLifetime: true,
-                generateBackupToken: true
-            })
-        });
-        
-        if (extendResponse.ok) {
-            const extendData = await extendResponse.json();
-            if (extendData.jwt || extendData.jwtToken) {
-                const newToken = extendData.jwt || extendData.jwtToken;
-                
-                // Store the extended session token
-                await chrome.storage.local.set({
-                    jwtToken: newToken,
-                    sessionExtended: true,
-                    extensionMethod: 'session_extension',
-                    lastExtension: Date.now()
-                });
-                
-                return newToken;
-            }
-        }
-        
-        // If all else fails, generate a temporary extension token based on existing session
-        debugLog('Creating temporary session extension');
-        return await createTemporarySessionExtension();
-        
-    } catch (error) {
-        debugError('Session extension failed:', error);
-        throw new Error('Unable to maintain authentication. Please re-authenticate.');
-    }
-}
-
-// Create temporary session extension as last resort
-async function createTemporarySessionExtension() {
-    try {
-        const currentUserId = await getStoredUserId();
-        const refreshToken = await getRefreshToken();
-        
-        if (!currentUserId) {
-            throw new Error('Cannot create session extension: no userId');
-        }
-        
-        // Generate a temporary token extension request
-        const tempExtensionResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/temp-extension', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${await getJWTToken()}`
-            },
-            body: JSON.stringify({
-                userId: currentUserId,
-                refreshToken: refreshToken,
-                requestType: 'temporary_extension',
-                duration: '24h' // Request 24-hour extension
-            })
-        });
-        
-        if (tempExtensionResponse.ok) {
-            const tempData = await tempExtensionResponse.json();
-            if (tempData.jwt || tempData.jwtToken) {
-                const tempToken = tempData.jwt || tempData.jwtToken;
-                
-                // Store temporary extension token
-                await chrome.storage.local.set({
-                    jwtToken: tempToken,
-                    isTemporaryExtension: true,
-                    tempExtensionExpiry: tempData.expiry || (Date.now() + 24 * 60 * 60 * 1000),
-                    extensionCount: (await getTokenRefreshCount()) + 1
-                });
-                
-                debugLog('Temporary session extension created');
-                return tempToken;
-            }
-        }
-        
-        // Ultimate fallback: create a session-based token
-        const sessionToken = await generateSessionBasedToken(currentUserId);
-        return sessionToken;
-        
-    } catch (error) {
-        debugError('Temporary session extension failed:', error);
-        throw error;
-    }
-}
-
-// Generate token based on existing session data
-async function generateSessionBasedToken(userId) {
-    try {
-        debugLog('Generating session-based token as last resort');
-        
-        // Request a session-based token generation
-        const sessionResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/session-token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${await getJWTToken()}`
-            },
-            body: JSON.stringify({
-                userId: userId,
-                requestType: 'session_generation',
-                source: 'chrome_extension',
-                metadata: {
-                    platform: 'chrome_extension',
-                    sessionId: await getSessionId(),
-                    lastActivity: Date.now()
-                }
-            })
-        });
-        
-        if (sessionResponse.ok) {
-            const sessionData = await sessionResponse.json();
-            if (sessionData.jwt || sessionData.jwtToken) {
-                const sessionToken = sessionData.jwt || sessionData.jwtToken;
-                
-                await chrome.storage.local.set({
-                    jwtToken: sessionToken,
-                    isSessionBased: true,
-                    sessionTokenGenerated: Date.now()
-                });
-                
-                return sessionToken;
-            }
-        }
-        
-        throw new Error('Session token generation failed');
-        
-    } catch (error) {
-        debugError('Session token generation failed:', error);
-        throw error;
-    }
-}
-
-// Get or generate session ID
-async function getSessionId() {
-    const { sessionId } = await chrome.storage.local.get(['sessionId']);
-    if (sessionId) {
-        return sessionId;
-    }
-    
-    // Generate new session ID
-    const newSessionId = 'ext_session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    await chrome.storage.local.set({ sessionId: newSessionId });
-    return newSessionId;
-}
-
 // Check if JWT token is expired (parse JWT payload for exp claim)
 async function isJWTTokenExpired(jwtToken) {
     try {
@@ -523,72 +360,126 @@ async function ensureValidJWTToken() {
     return jwtToken;
 }
 
-// Refresh JWT token by calling n8n refresh endpoint first, then fallback to silent OAuth
+// Refresh JWT token using n8n refresh endpoint
 async function refreshJWTToken() {
     try {
         debugLog('JWT token expired, attempting refresh via n8n');
         
-        // Step 1: Try to refresh token using n8n refresh endpoint
         const currentUserId = await getStoredUserId();
-        if (currentUserId) {
-            try {
-                const refreshResponse = await safeRequest('https://connector.saai.dev/webhook/session/renew', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${await getJWTToken()}` // Include current JWT for verification
-                    },
-                    body: JSON.stringify({
-                        userId: currentUserId,
-                        refreshToken: await getRefreshToken(),
-                        grantType: 'refresh_token',
-                        extendLifetime: true // Request extended token lifetime
-                    })
-                });
-                
-                if (refreshResponse.ok) {
-                    const refreshData = await refreshResponse.json();
-                    if (refreshData.jwt || refreshData.jwtToken) {
-                        const newJwtToken = refreshData.jwt || refreshData.jwtToken;
-                        debugLog('JWT token refreshed successfully via n8n refresh endpoint');
-                        
-                        // Store the new token with extended metadata
-                        await chrome.storage.local.set({
-                            jwtToken: newJwtToken,
-                            refreshToken: refreshData.refreshToken || await getRefreshToken(),
-                            userId: refreshData.userId || currentUserId,
-                            tokenIssuedAt: Date.now(),
-                            tokenRefreshCount: (await getTokenRefreshCount()) + 1,
-                            lastSuccessfulRefresh: Date.now()
-                        });
-                        
-                        return newJwtToken;
-                    }
-                }
-            } catch (refreshError) {
-                debugLog('n8n refresh endpoint failed, trying silent refresh:', refreshError.message);
-                
-                // Try silent refresh without user interaction
-                try {
-                    const silentRefreshResult = await attemptSilentOAuthRefresh();
-                    if (silentRefreshResult.success) {
-                        debugLog('Silent OAuth refresh successful');
-                        return silentRefreshResult.jwtToken;
-                    }
-                } catch (silentError) {
-                    debugLog('Silent refresh failed:', silentError.message);
-                }
-            }
+        if (!currentUserId) {
+            throw new Error('No userId found. Please re-authenticate.');
         }
         
-        // Step 2: Final fallback - extend current session without full re-auth
-        debugLog('Attempting session extension without full re-authentication');
-        return await extendCurrentSession();
+        const refreshResponse = await safeRequest('https://connector.saai.dev/webhook/session/renew', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${await getJWTToken()}`
+            },
+            body: JSON.stringify({
+                userId: currentUserId,
+                refreshToken: await getRefreshToken(),
+                grantType: 'refresh_token',
+                extendLifetime: true
+            })
+        });
+        
+        if (!refreshResponse.ok) {
+            const errorText = await refreshResponse.text();
+            debugError('Token refresh failed:', errorText);
+            throw new Error(`Token refresh failed: ${refreshResponse.status} ${refreshResponse.statusText}`);
+        }
+        
+        let refreshData = await refreshResponse.json();
+        
+        // Handle array response from n8n (extract first element)
+        if (Array.isArray(refreshData) && refreshData.length > 0) {
+            debugLog('Refresh response is array, extracting first element');
+            refreshData = refreshData[0];
+        }
+        
+        // Check for JWT token in various field names
+        const newJwtToken = refreshData.jwt || refreshData.jwtToken || refreshData.token;
+        
+        if (!newJwtToken) {
+            debugError('No JWT in refresh response:', refreshData);
+            throw new Error('Token refresh response missing JWT token');
+        }
+        
+        debugLog('JWT token refreshed successfully');
+        
+        // Store the new token
+        await chrome.storage.local.set({
+            jwtToken: newJwtToken,
+            refreshToken: refreshData.refreshToken || await getRefreshToken(),
+            userId: refreshData.userId || currentUserId,
+            tokenIssuedAt: Date.now(),
+            tokenRefreshCount: (await getTokenRefreshCount()) + 1,
+            lastSuccessfulRefresh: Date.now()
+        });
+        
+        return newJwtToken;
         
     } catch (error) {
         debugError('Token refresh failed:', error);
-        throw error;
+        console.error('[SaAI-BG] Token refresh error - check if webhook/session/renew is active and returning jwt field');
+        throw new Error('Unable to refresh authentication. Please re-authenticate.');
     }
+}
+
+// Handle credit tracking webhook requests
+async function handleCreditTracking(data) {
+    const { userId, prompt, creditsUsed } = data;
+    
+    console.log('[SaAI-BG] Credit tracking data received:', { userId, prompt, creditsUsed });
+    debugLog('Sending credit tracking to n8n:', { userId, prompt, creditsUsed });
+    
+    // Validate data
+    if (!userId || !prompt || !creditsUsed) {
+        console.error('[SaAI-BG] Invalid credit tracking data:', data);
+        throw new Error('Missing required credit tracking parameters');
+    }
+    
+    // Get and validate JWT token
+    const jwtToken = await ensureValidJWTToken();
+    if (!jwtToken) {
+        throw new Error('No JWT token found. Please authenticate first.');
+    }
+    
+    const url = 'https://connector.saai.dev/webhook/Credit-Tracking';
+    
+    const payload = {
+        userId: userId,
+        prompt: prompt,
+        creditsUsed: creditsUsed
+    };
+    
+    console.log('[SaAI-BG] Sending credit tracking payload:', payload);
+    console.log('[SaAI-BG] JWT token:', jwtToken ? 'Present' : 'Missing');
+    
+    const response = await safeRequest(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify(payload)
+    });
+    
+    console.log('[SaAI-BG] Credit tracking response status:', response.status);
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[SaAI-BG] Credit tracking error response:', errorText);
+        throw new Error(`Credit tracking failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    console.log('[SaAI-BG] Credit tracking response data:', result);
+    debugLog('Credit tracking response:', result);
+    
+    return result;
 }
 
 // Handle N8N webhook requests
@@ -624,7 +515,7 @@ async function handleN8NRequest(data) {
             }
             break;
         case 'task':
-            url = 'https://connector.saai.dev/webhook/Tak-Management';
+            url = 'https://connector.saai.dev/webhook/Task-Management';
             break;
         default:
             throw new Error('Invalid endpoint');
@@ -825,52 +716,62 @@ async function handleFallbackResponse(endpoint, payload) {
 
 // PKCE OAuth flow with n8n webhook
 async function handleOAuthFlow() {
+    console.log('[SaAI-BG] ===== handleOAuthFlow() called =====');
     try {
+        console.log('[SaAI-BG] Starting PKCE OAuth flow with n8n');
         debugLog('Starting PKCE OAuth flow with n8n');
         
         // Step 1: Call n8n /oauth/start endpoint to get PKCE parameters
         debugLog('Calling n8n /oauth/start endpoint...');
-        const startResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/start', {
-            method: 'GET'
-        });
         
-        debugLog('PKCE start response status:', startResponse.status);
-        debugLog('PKCE start response headers:', Object.fromEntries(startResponse.headers.entries()));
-        
-        if (!startResponse.ok) {
-            throw new Error(`n8n /oauth/start failed with status ${startResponse.status}: ${startResponse.statusText}`);
-        }
-        
-        const startData = await startResponse.json();
-        debugLog('PKCE start response data:', startData);
-        
-        if (!startData.state || !startData.code_challenge) {
-            debugError('Invalid PKCE parameters from n8n:', startData);
-            throw new Error(`Invalid PKCE parameters from n8n. Response: ${JSON.stringify(startData)}`);
+        let startData;
+        try {
+            const startResponse = await safeRequest('https://connector.saai.dev/webhook/oauth/start', {
+                method: 'GET'
+            });
+            
+            debugLog('PKCE start response status:', startResponse.status);
+            debugLog('PKCE start response headers:', Object.fromEntries(startResponse.headers.entries()));
+            
+            if (!startResponse.ok) {
+                throw new Error(`n8n /oauth/start failed with status ${startResponse.status}: ${startResponse.statusText}`);
+            }
+            
+            startData = await startResponse.json();
+            debugLog('PKCE start response data:', startData);
+            
+            if (!startData.state || !startData.code_challenge) {
+                debugError('Invalid PKCE parameters from n8n:', startData);
+                throw new Error(`Invalid PKCE parameters from n8n. Response: ${JSON.stringify(startData)}`);
+            }
+            
+            debugLog('PKCE parameters received successfully:', {
+                state: startData.state,
+                code_challenge: startData.code_challenge,
+                code_challenge_method: startData.code_challenge_method
+            });
+            
+        } catch (startError) {
+            debugError('Failed to get PKCE parameters from /oauth/start:', startError);
+            console.error('[SaAI-BG] OAuth start error:', startError.message);
+            throw new Error(`Failed to get OAuth parameters: ${startError.message}`);
         }
         
         // Step 2: Build Google OAuth URL with n8n's PKCE parameters
-        const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
+    const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
         const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
         const scopes = [
-            'email',
-            'profile',
             'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/gmail.send',
-            'https://www.googleapis.com/auth/gmail.labels',
-            'https://www.googleapis.com/auth/gmail.compose',
-            'https://www.googleapis.com/auth/gmail.modify',
-            'https://www.googleapis.com/auth/userinfo.profile',
             'https://www.googleapis.com/auth/userinfo.email',
-            'openid'
+            'https://www.googleapis.com/auth/userinfo.profile'
         ];
         
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
             `client_id=${clientId}` +
-            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
             `&scope=${encodeURIComponent(scopes.join(' '))}` +
-            `&response_type=code` +
-            `&access_type=offline` +
+        `&response_type=code` +
+        `&access_type=offline` +
             `&prompt=consent` +
             `&code_challenge=${encodeURIComponent(startData.code_challenge)}` +
             `&code_challenge_method=${startData.code_challenge_method || 'S256'}` +
@@ -881,25 +782,32 @@ async function handleOAuthFlow() {
         debugLog('Google OAuth URL:', authUrl);
         
         // Step 3: Launch OAuth flow
-        return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
             debugLog('Launching Chrome identity web auth flow...');
-            chrome.identity.launchWebAuthFlow({
-                url: authUrl,
-                interactive: true
+        chrome.identity.launchWebAuthFlow({
+            url: authUrl,
+            interactive: true
             }, async function(redirectUrl) {
-                if (chrome.runtime.lastError) {
+            if (chrome.runtime.lastError) {
                     debugError('OAuth failed:', chrome.runtime.lastError);
-                    reject(new Error(`OAuth failed: ${chrome.runtime.lastError.message}`));
-                    return;
-                }
-                
-                if (redirectUrl) {
-                    debugLog('OAuth redirect URL received:', redirectUrl);
                     
+                    // Handle user cancellation specifically
+                    const errorMessage = chrome.runtime.lastError.message || '';
+                    if (errorMessage.includes('user did not approve') || errorMessage.includes('cancelled')) {
+                        reject(new Error('OAUTH_CANCELLED: User cancelled the authentication process'));
+                    } else {
+                        reject(new Error(`OAuth failed: ${errorMessage}`));
+                    }
+                return;
+            }
+            
+            if (redirectUrl) {
+                    debugLog('OAuth redirect URL received:', redirectUrl);
+                
                     try {
                         // Step 4: n8n redirects back to extension with JWT token
                         // Extract JWT token, refresh token, and user ID from redirect URL
-                        const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
+                const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
                         const jwtToken = urlParams.get('jwt_token');
                         const userId = urlParams.get('user_id');
                         const refreshToken = urlParams.get('refresh_token');
@@ -907,8 +815,22 @@ async function handleOAuthFlow() {
                         
                         // Check if this is an error response
                         const error = urlParams.get('error');
+                        const errorCode = urlParams.get('error_code');
                         if (error) {
                             const errorDescription = urlParams.get('error_description') || 'Unknown error';
+                            
+                            // Handle user not in whitelist (HTTP 408)
+                            if (errorCode === '408' || error === 'user_not_whitelisted') {
+                                debugError('User not whitelisted:', errorDescription);
+                                throw new Error(`NOT_WHITELISTED: ${errorDescription}`);
+                            }
+                            
+                            // Handle access denied specifically
+                            if (error === 'access_denied') {
+                                debugError('Access denied:', errorDescription);
+                                throw new Error(`Access Denied: ${errorDescription}`);
+                            }
+                            
                             throw new Error(`OAuth error: ${error} - ${errorDescription}`);
                         }
                         
@@ -927,8 +849,8 @@ async function handleOAuthFlow() {
                         
                         // Step 5: Store JWT token, refresh token, and user ID
                         const storageData = {
-                            isConnected: true,
-                            userId: userId,
+                        isConnected: true, 
+                        userId: userId,
                             jwtToken: jwtToken,
                             oauthData: {
                                 userId: userId,
@@ -955,111 +877,23 @@ async function handleOAuthFlow() {
                     } catch (error) {
                         debugError('Error in PKCE OAuth flow:', error);
                         reject(error);
-                    }
-                } else {
-                    reject(new Error('OAuth was cancelled'));
-                }
-            });
-        });
-        
-    } catch (error) {
-        debugError('PKCE OAuth flow failed:', error);
-        
-        // Fallback to original OAuth flow if PKCE fails
-        debugLog('Falling back to original OAuth flow');
-        return await handleOriginalOAuthFlow();
-    }
-}
-
-// Original OAuth flow (fallback)
-async function handleOriginalOAuthFlow() {
-    const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
-    const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
-    const scopes = 'email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.labels https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid';
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&scope=${encodeURIComponent(scopes)}` +
-        `&response_type=code` +
-        `&access_type=offline` +
-        `&prompt=consent`;
-    
-    return new Promise((resolve, reject) => {
-        chrome.identity.launchWebAuthFlow({
-            url: authUrl,
-            interactive: true
-        }, function(redirectUrl) {
-            if (chrome.runtime.lastError) {
-                console.error('[Background] OAuth failed:', chrome.runtime.lastError);
-                reject(new Error(chrome.runtime.lastError.message));
-                return;
-            }
-            
-            if (redirectUrl) {
-                console.log('[Background] OAuth redirect URL:', redirectUrl);
-                
-                // Extract userId from redirect URL
-                const urlParams = new URLSearchParams(redirectUrl.split('?')[1]);
-                const userId = urlParams.get('userId');
-                
-                if (userId) {
-                    console.log('[Background] OAuth successful, userId received:', userId);
-                    // Update storage
-                    chrome.storage.local.set({ 
-                        isConnected: true, 
-                        userId: userId,
-                        oauthData: { userId, redirectUrl }
-                    }, () => {
-                        console.log('[Background] Storage updated successfully');
-                        resolve({ success: true, userId });
-                    });
-                } else {
-                    // Try fragment
-                    const fragment = redirectUrl.split('#')[1];
-                    if (fragment) {
-                        const fragmentParams = new URLSearchParams(fragment);
-                        const fragmentUserId = fragmentParams.get('userId');
-                        if (fragmentUserId) {
-                            console.log('[Background] Found userId in fragment:', fragmentUserId);
-                            chrome.storage.local.set({ 
-                                isConnected: true, 
-                                userId: fragmentUserId,
-                                oauthData: { userId: fragmentUserId, redirectUrl }
-                            }, () => {
-                                console.log('[Background] Storage updated successfully');
-                                resolve({ success: true, userId: fragmentUserId });
-                            });
-                        } else {
-                            // If no userId in redirect, generate one
-                            const generatedUserId = 'user_' + Date.now();
-                            console.log('[Background] No userId in redirect, generating:', generatedUserId);
-                            chrome.storage.local.set({ 
-                                isConnected: true, 
-                                userId: generatedUserId,
-                                oauthData: { userId: generatedUserId, redirectUrl }
-                            }, () => {
-                                console.log('[Background] Storage updated with generated userId');
-                                resolve({ success: true, userId: generatedUserId });
-                            });
-                        }
-                    } else {
-                        // If no fragment, generate userId
-                        const generatedUserId = 'user_' + Date.now();
-                        console.log('[Background] No fragment, generating userId:', generatedUserId);
-                        chrome.storage.local.set({ 
-                            isConnected: true, 
-                            userId: generatedUserId,
-                            oauthData: { userId: generatedUserId, redirectUrl }
-                        }, () => {
-                            console.log('[Background] Storage updated with generated userId');
-                            resolve({ success: true, userId: generatedUserId });
-                        });
-                    }
                 }
             } else {
-                reject(new Error('OAuth was cancelled'));
+                reject(new Error('OAUTH_CANCELLED: User cancelled the authentication process'));
             }
         });
     });
+        
+    } catch (error) {
+        debugError('PKCE OAuth flow failed:', error);
+        debugError('PKCE error details:', {
+            message: error.message,
+            stack: error.stack
+        });
+        
+        // No fallback - let the OAuth flow fail completely
+        throw error;
+    }
 }
 
 // Handle extension icon click - opens popup for Gmail connection

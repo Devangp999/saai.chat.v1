@@ -2737,6 +2737,9 @@ async function initializeOnboarding(sidebar) {
 }
 
 function addSidebarEventListeners(sidebar, isConnected) {
+  console.log('[SaAI-Content] Adding sidebar event listeners, isConnected:', isConnected);
+  console.log('[SaAI-Content] Sidebar element:', sidebar);
+  
   // Close button
   const closeBtn = sidebar.querySelector('#close-sidebar');
   if (closeBtn) {
@@ -2797,10 +2800,15 @@ function addSidebarEventListeners(sidebar, isConnected) {
       
         // Task list button
   const taskListBtn = sidebar.querySelector('#task-list-btn');
+  console.log('[SaAI-Content] Task button found:', taskListBtn);
   if (taskListBtn) {
+    console.log('[SaAI-Content] Adding click listener to task button');
     taskListBtn.addEventListener('click', () => {
+      console.log('[SaAI-Content] Task button clicked!');
       showTaskModal();
     });
+  } else {
+    console.error('[SaAI-Content] Task button not found!');
   }
   
   // Clear chat button
@@ -2828,6 +2836,7 @@ function addSidebarEventListeners(sidebar, isConnected) {
     const connectBtn = sidebar.querySelector('#saai-connect-btn');
     if (connectBtn) {
       connectBtn.addEventListener('click', () => {
+        console.log('[SaAI-Content] ===== Connect Gmail button clicked =====');
         debugLog('Connect Gmail button clicked');
         startOAuthFlow();
       });
@@ -3238,6 +3247,8 @@ function formatUnstructuredResponse(text) {
 // === MODIFIED MESSAGE HANDLING ===
 
 async function handleSendMessage() {
+  console.log('[SaAI-Content] ===== handleSendMessage() called =====');
+  
   const input = document.getElementById('chat-input');
   if (!input) {
     debugError('Chat input not found');
@@ -3245,6 +3256,7 @@ async function handleSendMessage() {
   }
   
   const message = input.value.trim();
+  console.log('[SaAI-Content] Message from input:', message);
   if (!message) return;
   
   // Check credit limit first
@@ -3366,6 +3378,7 @@ async function handleSendMessage() {
     }
     
     if (response?.success) {
+      console.log('[SaAI-Content] ===== RESPONSE SUCCESS - Starting credit tracking logic =====');
       debugLog('Response received:', response.data);
       debugLog('Response data type:', typeof response.data);
       debugLog('Response data keys:', response.data ? Object.keys(response.data) : 'null');
@@ -3373,10 +3386,37 @@ async function handleSendMessage() {
       
       // Deduct credits after successful response
       try {
-        await deductCredits(classification.cost, classification.feature);
-        debugLog(`Credits deducted: ${classification.cost} for ${classification.feature}`);
+        console.log('[SaAI-Content] About to check shouldTrackCreditConsumption');
+        // Decide first if we should track credits for this response
+        const shouldTrackCredits = shouldTrackCreditConsumption(response.data, message);
+        console.log('[SaAI-Content] shouldTrackCredits result:', shouldTrackCredits);
+
+        if (shouldTrackCredits) {
+          // Deduct credits
+          await deductCredits(classification.cost, classification.feature);
+          debugLog(`Credits deducted: ${classification.cost} for ${classification.feature}`);
+
+          // Send credit tracking data to webhook
+          try {
+            console.log('[SaAI-Content] About to send credit tracking:', {
+              userId: userId,
+              message: message,
+              classificationCost: classification.cost,
+              messageLength: message ? message.length : 0
+            });
+
+            const creditData = await sendCreditTrackingToWebhook(userId, message, classification.cost);
+            if (creditData) {
+              await updateUIWithTotalCredits(creditData);
+            }
+          } catch (creditError) {
+            debugError('Credit tracking failed:', creditError);
+          }
+        } else {
+          debugLog('Skipping credit deduction and tracking - validation message detected');
+        }
       } catch (error) {
-        debugError('Failed to deduct credits:', error);
+        debugError('Credit handling failed:', error);
       }
       
       // Handle array-wrapped responses from n8n
@@ -4466,17 +4506,23 @@ function classifyPrompt(prompt) {
 
 // Check if user has enough credits
 function hasEnoughCredits(requiredCredits) {
-  return userCredits.remaining >= requiredCredits;
+  // If it's a feature name, get the cost from CREDIT_COSTS
+  const cost = typeof requiredCredits === 'string' ? CREDIT_COSTS[requiredCredits] : requiredCredits;
+  console.log('[SaAI-Content] Checking credits - required:', requiredCredits, 'cost:', cost, 'remaining:', userCredits.remaining);
+  return userCredits.remaining >= cost;
 }
 
 // Deduct credits and update state
 async function deductCredits(amount, feature) {
-  if (!hasEnoughCredits(amount)) {
+  // If amount is a feature name, get the cost from CREDIT_COSTS
+  const cost = typeof amount === 'string' ? CREDIT_COSTS[amount] : amount;
+  
+  if (!hasEnoughCredits(cost)) {
     throw new Error('Insufficient credits');
   }
   
-  userCredits.used += amount;
-  userCredits.remaining -= amount;
+  userCredits.used += cost;
+  userCredits.remaining -= cost;
   
   // Update storage
   await chrome.storage.local.set({ 
@@ -4676,32 +4722,11 @@ function showInsufficientCreditsModal() {
   document.body.appendChild(modal);
 }
 async function sendCreditUpdateToBackend(feature, amount) {
-  try {
-    debugLog('Sending credit update to backend:', { feature, amount });
-    
-    // Use safeRequestWithRetry for automatic token refresh on 401/402
-    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/credit-tracking', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await ensureValidJWTToken()}`
-      },
-      body: JSON.stringify({
-        feature: feature,
-        creditsUsed: amount,
-        timestamp: Date.now(),
-        userCredits: userCredits
-      })
-    });
-    
-    if (!response.ok) {
-      debugError('Failed to send credit update to backend:', response.status);
-    } else {
-      debugLog('Credit update sent successfully');
-    }
-  } catch (error) {
-    debugError('Error sending credit update to backend:', error);
-  }
+  // DEPRECATED: This function is no longer used
+  // Credit tracking is now handled by sendCreditTrackingToWebhook() via background script
+  // to avoid CORS issues
+  debugLog('sendCreditUpdateToBackend called (deprecated, skipping)');
+  return;
 }
 
 // Get JWT token from storage
@@ -4851,25 +4876,49 @@ async function initializeCreditSystem() {
 }
 
 function startOAuthFlow() {
+  console.log('[SaAI-Content] ===== startOAuthFlow() called =====');
   debugLog('Starting OAuth flow');
   
   // Show OAuth loader
   showOAuthLoader();
   
   // Send message to background script
-  chrome.runtime.sendMessage({
+  console.log('[SaAI-Content] Sending OAuth request to background script...');
+  debugLog('Sending OAuth request to background script...');
+  
+  const message = {
     action: 'sendToN8N',
     data: {
       endpoint: 'oauth',
       payload: { context: 'GmailConnectClicked' }
     }
-  }, (response) => {
+  };
+  
+  console.log('[SaAI-Content] Message being sent:', message);
+  
+  chrome.runtime.sendMessage(message, (response) => {
+    console.log('[SaAI-Content] OAuth response received:', response);
+    debugLog('OAuth response received:', response);
     if (response?.success) {
       debugLog('OAuth success response:', response.data);
       showOAuthSuccess();
     } else {
       debugError('OAuth failed:', response?.error);
+      
+      // Check if user cancelled the OAuth flow
+      if (response?.error && response.error.includes('OAUTH_CANCELLED')) {
+        showStatus('Authentication cancelled. Click "Connect" to try again.', 'info');
+      }
+      // Check if user is not in whitelist
+      else if (response?.error && response.error.includes('NOT_WHITELISTED')) {
+        showStatus('Thank you for your interest! Your email is not yet registered for early access. Please contact our team to request access.', 'error');
+      }
+      // Check if this is an access denied error
+      else if (response?.error && response.error.includes('Access Denied')) {
+        showStatus('Access Denied: Your email is not authorized. Please contact admin for access.', 'error');
+      } else {
       showStatus('OAuth failed. Please try again.', 'error');
+      }
     }
   });
 }
@@ -5003,22 +5052,180 @@ function injectSuggestions() {
   chatArea.appendChild(suggestionsDiv);
 }
 
+// Check if credit consumption should be tracked (skip validation messages)
+function shouldTrackCreditConsumption(responseData, userMessage) {
+  // If no response data, don't track
+  if (!responseData) {
+    return false;
+  }
+  
+  // Extract response text for analysis
+  let responseText = '';
+  
+  if (typeof responseData === 'string') {
+    responseText = responseData;
+  } else if (typeof responseData === 'object') {
+    // Handle different response formats
+    if (responseData.message) {
+      responseText = responseData.message;
+    } else if (responseData.response) {
+      responseText = responseData.response;
+    } else if (responseData.text) {
+      responseText = responseData.text;
+    } else if (Array.isArray(responseData) && responseData.length > 0) {
+      responseText = responseData[0].message || responseData[0].response || responseData[0].text || '';
+    }
+  }
+  
+  // Convert to lowercase for easier matching
+  const lowerResponseText = responseText.toLowerCase();
+  
+  // List of validation messages that should NOT count as credit consumption
+  const validationMessages = [
+    'please open a thread to process',
+    'please open a thread',
+    'open a thread',
+    'thread not found',
+    'no thread selected',
+    'please select a thread',
+    'connect your gmail',
+    'please connect your gmail',
+    'authentication required',
+    'login required',
+    'please login',
+    'invalid request',
+    'error occurred',
+    'something went wrong',
+    'try again',
+    'please try again'
+  ];
+  
+  // Check if response contains any validation message
+  const isValidationMessage = validationMessages.some(msg => 
+    lowerResponseText.includes(msg.toLowerCase())
+  );
+  
+  console.log('[SaAI-Content] Credit tracking check:', {
+    responseText: responseText.substring(0, 100) + '...',
+    isValidationMessage,
+    shouldTrack: !isValidationMessage
+  });
+  
+  // Track credits only if it's NOT a validation message
+  return !isValidationMessage;
+}
+
+// === Credit Tracking ===
+
+// Send credit tracking data to webhook via background script (to avoid CORS)
+async function sendCreditTrackingToWebhook(userId, prompt, creditsUsed) {
+  try {
+    console.log('[SaAI-Content] ===== sendCreditTrackingToWebhook called =====');
+    console.log('[SaAI-Content] Parameters received:', { 
+      userId: userId, 
+      prompt: prompt, 
+      creditsUsed: creditsUsed,
+      promptType: typeof prompt,
+      promptLength: prompt ? prompt.length : 0
+    });
+    
+    // Validate parameters
+    if (!userId) {
+      console.error('[SaAI-Content] Error: userId is missing');
+      return null;
+    }
+    
+    if (!prompt || prompt.trim() === '') {
+      console.error('[SaAI-Content] Error: prompt is empty or missing');
+      return null;
+    }
+    
+    if (!creditsUsed || creditsUsed <= 0) {
+      console.error('[SaAI-Content] Error: creditsUsed is invalid:', creditsUsed);
+      return null;
+    }
+    
+    const payload = {
+      userId: userId,
+      prompt: prompt.trim(),
+      creditsUsed: creditsUsed
+    };
+    
+    console.log('[SaAI-Content] Sending payload to background script for credit tracking:', payload);
+    
+    // Send through background script to avoid CORS issues
+    const response = await chrome.runtime.sendMessage({
+      action: 'trackCredits',
+      data: payload
+    });
+    
+    console.log('[SaAI-Content] Credit tracking response from background:', response);
+    
+    if (!response?.success) {
+      throw new Error(response?.error || 'Credit tracking failed');
+    }
+    
+    const responseData = response.data;
+    console.log('[SaAI-Content] Credit tracking data received:', responseData);
+    
+    return responseData;
+    
+  } catch (error) {
+    console.error('[SaAI-Content] Credit tracking error:', error);
+    return null;
+  }
+}
+
+// Update UI with total credits consumed
+async function updateUIWithTotalCredits(creditData) {
+  if (!creditData || typeof creditData.totalCreditsConsumed !== 'number') {
+    console.warn('[SaAI-Content] Invalid credit data received:', creditData);
+    return;
+  }
+  
+  console.log('[SaAI-Content] Updating UI with total credits consumed:', creditData.totalCreditsConsumed);
+  
+  // Update userCredits object
+  userCredits.used = creditData.totalCreditsConsumed;
+  userCredits.remaining = userCredits.total - userCredits.used;
+  
+  // Update storage
+  await chrome.storage.local.set({ 
+    userCredits: userCredits,
+    lastCreditUpdate: Date.now()
+  });
+  
+  // Update UI display
+  updateCreditDisplay();
+  
+  console.log('[SaAI-Content] UI updated - Used:', userCredits.used, 'Remaining:', userCredits.remaining);
+}
+
 // === Task Management ===
 
 async function showTaskModal() {
+  console.log('[SaAI-Content] ===== showTaskModal() called =====');
+  
   // Check credits before showing task modal
+  console.log('[SaAI-Content] Checking credits, remaining:', userCredits.remaining);
   if (userCredits.remaining === 0) {
+    console.log('[SaAI-Content] No credits remaining, showing insufficient credits modal');
     showInsufficientCreditsModal();
     return;
   }
   
+  console.log('[SaAI-Content] Checking if has enough credits for TASK_EXTRACTION');
   if (!hasEnoughCredits('TASK_EXTRACTION')) {
+    console.log('[SaAI-Content] Not enough credits for TASK_EXTRACTION, showing insufficient credits modal');
     showInsufficientCreditsModal();
     return;
   }
   
+  console.log('[SaAI-Content] Deducting credits for TASK_EXTRACTION');
   // Deduct credits for task extraction
   deductCredits('TASK_EXTRACTION');
+  
+  console.log('[SaAI-Content] Creating task modal HTML');
   
   // Show loading state first
   const modal = document.createElement('div');
@@ -5046,13 +5253,18 @@ async function showTaskModal() {
     </div>
   `;
   
+  console.log('[SaAI-Content] Appending modal to document.body');
   document.body.appendChild(modal);
+  console.log('[SaAI-Content] Modal appended successfully');
   
   // Add close button functionality
   const closeBtn = modal.querySelector('.task-modal-close-btn');
+  console.log('[SaAI-Content] Close button found:', closeBtn);
   if (closeBtn) {
     closeBtn.addEventListener('click', () => closeTaskModal(modal));
   }
+  
+  console.log('[SaAI-Content] Starting webhook call...');
   
   try {
     // Get user ID from storage
@@ -5063,7 +5275,7 @@ async function showTaskModal() {
     }
     
     // Call the webhook to extract tasks
-    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Tak-Management', {
+    const response = await safeRequest('https://connector.saai.dev/webhook/Task-Management', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -5079,10 +5291,35 @@ async function showTaskModal() {
       throw new Error(`Webhook request failed: ${response.status} ${response.statusText}`);
     }
     
-    const responseData = await response.json();
+    // Check if response has content before parsing JSON
+    const responseText = await response.text();
+    console.log('[SaAI-Content] Webhook response text:', responseText);
+    
+    if (!responseText || responseText.trim() === '') {
+      throw new Error('Webhook returned empty response');
+    }
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[SaAI-Content] JSON parse error:', parseError);
+      console.error('[SaAI-Content] Response text that failed to parse:', responseText);
+      throw new Error(`Invalid JSON response from webhook: ${parseError.message}`);
+    }
     
     // Update modal with tasks from webhook
     updateTaskModalWithData(modal, responseData);
+    
+    // Send credit tracking data to webhook for task extraction
+    try {
+      const creditData = await sendCreditTrackingToWebhook(userId, 'Task Extraction', 10);
+      if (creditData) {
+        await updateUIWithTotalCredits(creditData);
+      }
+    } catch (creditError) {
+      debugError('Credit tracking for task extraction failed:', creditError);
+    }
     
   } catch (error) {
     debugError('Task extraction failed:', error);
@@ -5320,7 +5557,7 @@ function addTaskModalEventListeners(modal) {
           }
           
           // Send delete task request to webhook
-          const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Tak-Management', {
+          const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Task-Management', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -5434,7 +5671,7 @@ async function addManualTask(taskText, priority = 'medium') {
     }
     
     // Send manual task to webhook for Supabase storage
-    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Tak-Management', {
+    const response = await safeRequestWithRetry('https://connector.saai.dev/webhook/Task-Management', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
