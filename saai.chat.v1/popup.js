@@ -11,42 +11,10 @@ function debugWarn(...args) {
   // console.warn('[SaAI]', ...args);
 }
 
-// Global reference to status div for showStatus function
-let statusDiv = null;
-
-// Helper function to show status messages (global scope)
-function showStatus(message, type) {
-    if (!statusDiv) {
-        statusDiv = document.getElementById('status');
-    }
-    if (statusDiv) {
-        statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
-        if (type !== 'info') {
-            setTimeout(() => {
-                statusDiv.innerHTML = '';
-            }, 3000);
-        }
-    }
-}
-
-// Helper function to send the open_saai message (global scope)
-function sendOpenSaaiMessage(tabId) {
-    chrome.tabs.sendMessage(tabId, {action: 'open_saai'}, function(response) {
-        debugLog('Message response:', response);
-        if (chrome.runtime.lastError) {
-            debugError('Message error:', chrome.runtime.lastError);
-            showStatus('Error: ' + chrome.runtime.lastError.message, 'error');
-        } else {
-            debugLog('Sa.AI Assistant opened successfully');
-            window.close();
-        }
-    });
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     const authorizeBtn = document.getElementById('authorize');
     const testBtn = document.getElementById('test-connection');
-    statusDiv = document.getElementById('status');
+    const statusDiv = document.getElementById('status');
 
     chrome.storage.local.get(['userId', 'isConnected'], function(result) {
         debugLog('Popup loaded, storage result:', result);
@@ -131,4 +99,42 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Helper function to show status messages
+    function showStatus(message, type) {
+        statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        if (type !== 'info') {
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+    }
 });
+
+// Helper function to send the open_saai message
+function sendOpenSaaiMessage(tabId) {
+    const statusDiv = document.getElementById('status');
+    
+    // Helper function for status in this scope
+    function showStatusMessage(message, type) {
+        if (statusDiv) {
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            if (type !== 'info') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 3000);
+            }
+        }
+    }
+    
+    chrome.tabs.sendMessage(tabId, {action: 'open_saai'}, function(response) {
+        debugLog('Message response:', response);
+        if (chrome.runtime.lastError) {
+            debugError('Message error:', chrome.runtime.lastError);
+            showStatusMessage('Error: ' + chrome.runtime.lastError.message, 'error');
+        } else {
+            debugLog('Sa.AI Assistant opened successfully');
+            window.close();
+        }
+    });
+}

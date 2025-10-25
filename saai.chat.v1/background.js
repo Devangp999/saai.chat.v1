@@ -63,25 +63,24 @@ const FEATURES = {
 chrome.runtime.onInstalled.addListener((details) => {
     debugLog('Sa.AI Inbox Assistant installed/updated', details.reason);
     
-    // Only clear storage on fresh install, NOT on updates
+    // Only clear storage on fresh install, not on updates
     if (details.reason === 'install') {
         chrome.storage.local.clear(() => {
             debugLog('Storage cleared on fresh installation');
         });
     } else if (details.reason === 'update') {
-        debugLog('Extension updated - preserving user data');
-        // Do NOT clear storage on updates - keep user logged in
+        debugLog('Extension updated - preserving existing user data');
+        // Do not clear storage on updates
     }
 });
 
-// Extension startup handler - keep session alive
+// Check existing session on startup
 chrome.runtime.onStartup.addListener(() => {
     debugLog('Extension startup - checking existing session');
     
-    // Check if user already has a valid session
     chrome.storage.local.get(['isConnected', 'jwtToken', 'userId'], (result) => {
         if (result.isConnected && result.jwtToken && result.userId) {
-            debugLog('Existing session found - user remains logged in');
+            debugLog('Existing session found');
         } else {
             debugLog('No existing session found');
         }

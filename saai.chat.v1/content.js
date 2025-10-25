@@ -3468,42 +3468,38 @@ async function handleSendMessage() {
       if (responseData?.fallback) {
         debugLog('Using fallback response - n8n webhook unavailable');
         
-        // Create a special message for fallback responses
-        // SECURITY: Use textContent to prevent XSS from untrusted backend response
+        // Create a special message for fallback responses (sanitized)
         const fallbackDiv = document.createElement('div');
         fallbackDiv.className = 'message bot-message';
         
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
         
-        // Safely create elements without innerHTML to prevent XSS
-        const messageDiv = document.createElement('div');
-        messageDiv.style.marginBottom = '8px';
-        messageDiv.textContent = responseData.message || 'No response message';
+        // Sanitize by using textContent instead of innerHTML
+        const mainMessage = document.createElement('div');
+        mainMessage.style.marginBottom = '8px';
+        mainMessage.textContent = responseData.message || 'No response message';
         
-        const detailsDiv = document.createElement('div');
-        detailsDiv.style.fontSize = '12px';
-        detailsDiv.style.opacity = '0.8';
-        detailsDiv.style.borderTop = '1px solid rgba(0,0,0,0.1)';
-        detailsDiv.style.paddingTop = '8px';
-        detailsDiv.style.marginTop = '8px';
+        const statusInfo = document.createElement('div');
+        statusInfo.style.fontSize = '12px';
+        statusInfo.style.opacity = '0.8';
+        statusInfo.style.borderTop = '1px solid rgba(0,0,0,0.1)';
+        statusInfo.style.paddingTop = '8px';
+        statusInfo.style.marginTop = '8px';
         
-        const statusLabel = document.createElement('strong');
-        statusLabel.textContent = 'Webhook Status: ';
-        const statusText = document.createTextNode(responseData.webhookStatus || 'Unknown');
+        const webhookLabel = document.createElement('strong');
+        webhookLabel.textContent = 'Webhook Status: ';
+        statusInfo.appendChild(webhookLabel);
+        statusInfo.appendChild(document.createTextNode(responseData.webhookStatus || 'Unknown'));
+        statusInfo.appendChild(document.createElement('br'));
         
         const suggestionLabel = document.createElement('strong');
         suggestionLabel.textContent = 'Suggestion: ';
-        const suggestionText = document.createTextNode(responseData.suggestion || 'Check n8n configuration');
+        statusInfo.appendChild(suggestionLabel);
+        statusInfo.appendChild(document.createTextNode(responseData.suggestion || 'Check n8n configuration'));
         
-        detailsDiv.appendChild(statusLabel);
-        detailsDiv.appendChild(statusText);
-        detailsDiv.appendChild(document.createElement('br'));
-        detailsDiv.appendChild(suggestionLabel);
-        detailsDiv.appendChild(suggestionText);
-        
-        messageContent.appendChild(messageDiv);
-        messageContent.appendChild(detailsDiv);
+        messageContent.appendChild(mainMessage);
+        messageContent.appendChild(statusInfo);
         fallbackDiv.appendChild(messageContent);
         chatArea.appendChild(fallbackDiv);
         chatArea.scrollTop = chatArea.scrollHeight;
@@ -5402,7 +5398,7 @@ function showToast(message, type = 'info', duration = 5000) {
   document.body.appendChild(toast);
   
   // Trigger animation
-  setTimeout(() => {
+    setTimeout(() => {
     toast.classList.add('saai-toast-show');
   }, 10);
   
@@ -7001,7 +6997,7 @@ window.confirmClearData = function() {
         <div class="confirmation-message">
           <p class="confirmation-title">Sa.ai will lose your data</p>
           <p class="confirmation-subtitle">This action cannot be undone. All your data will be permanently deleted.</p>
-        </div>
+          </div>
         <div class="confirmation-actions">
           <button class="confirmation-btn confirmation-btn-no" onclick="this.closest('.saai-confirmation-modal').remove()">
             No
@@ -7105,55 +7101,83 @@ window.submitSupportRequest = function() {
 };
 
 // Clear all data
-window.clearAllData = function() {
+window.clearAllData = async function() {
   // Close the confirmation modal
   const confirmModal = document.querySelector('.saai-confirmation-modal');
   if (confirmModal) {
     confirmModal.remove();
   }
   
-  // Clear all storage
-  chrome.storage.local.clear(() => {
-    chrome.storage.sync.clear(() => {
-      // Show final success message with email confirmation
-      const modal = document.createElement('div');
-      modal.className = 'saai-modal saai-confirmation-modal';
-      modal.innerHTML = `
-        <div class="saai-modal-content saai-confirmation-content">
-          <div class="saai-modal-header">
-            <h2 class="saai-modal-title">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Data Cleared Successfully
-            </h2>
-          </div>
-          <div class="saai-modal-body saai-confirmation-body">
-            <div class="confirmation-icon success">✓</div>
-            <div class="confirmation-message">
-              <p class="confirmation-title">All data has been cleared</p>
-              <p class="confirmation-subtitle">
-                All stored information has been permanently deleted from your browser.
-                You will need to reconnect your account to use Sa.AI again.
-              </p>
-            </div>
-            <div class="confirmation-actions">
-              <button class="confirmation-btn confirmation-btn-primary" onclick="window.location.reload()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="23 4 23 10 17 10"/>
-                  <polyline points="1 20 1 14 7 14"/>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                </svg>
-                Reload Page
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
+  try {
+    // Get user email before clearing
+    const { userId } = await chrome.storage.local.get(['userId']);
+    const userEmail = userId || 'unknown_user';
+    
+    // Send notification to backend about data deletion
+    try {
+      const response = await fetch('https://connector.saai.dev/webhook/DataDeletion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          timestamp: new Date().toISOString(),
+          action: 'data_cleared'
+        })
+      });
       
-      document.body.appendChild(modal);
+      debugLog('Data deletion notification sent:', response.ok);
+    } catch (notifyError) {
+      debugError('Failed to send deletion notification:', notifyError);
+      // Continue with deletion even if notification fails
+    }
+    
+    // Clear all storage
+    chrome.storage.local.clear(() => {
+      chrome.storage.sync.clear(() => {
+        // Show final success message
+        const modal = document.createElement('div');
+        modal.className = 'saai-modal saai-confirmation-modal';
+        modal.innerHTML = `
+          <div class="saai-modal-content saai-confirmation-content">
+            <div class="saai-modal-header">
+              <h2 class="saai-modal-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Data Cleared Successfully
+              </h2>
+            </div>
+            <div class="saai-modal-body saai-confirmation-body">
+              <div class="confirmation-icon success">✓</div>
+              <div class="confirmation-message">
+                <p class="confirmation-title">All data has been cleared</p>
+                <p class="confirmation-subtitle">
+                  A confirmation notification has been sent to our system
+                </p>
+              </div>
+              <div class="confirmation-actions">
+                <button class="confirmation-btn confirmation-btn-primary" onclick="window.location.reload()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                  </svg>
+                  Reload Page
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+      });
     });
-  });
+  } catch (error) {
+    debugError('Error in clearAllData:', error);
+    alert('An error occurred while clearing data. Please try again.');
+  }
 };
 
 // Function to add email to tasks via webhook
