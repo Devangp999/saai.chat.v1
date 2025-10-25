@@ -1,4 +1,4 @@
-// Background script for Sa.AI Gmail Assistant
+// Background script for Sa.AI Inbox Assistant
 
 // Simple, reliable logging for production
 function debugLog(...args) {
@@ -27,7 +27,19 @@ async function safeRequest(url, options = {}, timeout = 90000) {
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Allow caller to handle non-2xx responses when explicitly requested
+      if (options && options._allowErrorResponse === true) {
+        return response;
+      }
+      // Try to get error details from response body
+      let errorDetails = response.statusText;
+      try {
+        const errorBody = await response.text();
+        if (errorBody) errorDetails = errorBody;
+      } catch (e) {
+        // Ignore if can't read body
+      }
+      throw new Error(`HTTP ${response.status}: ${errorDetails}`);
     }
     
     return response;
@@ -49,7 +61,7 @@ const FEATURES = {
 };
 
 chrome.runtime.onInstalled.addListener(() => {
-    debugLog('Sa.AI Gmail Assistant installed');
+    debugLog('Sa.AI Inbox Assistant installed');
     
     // Clear any old data only if not updating
     chrome.runtime.onStartup.addListener(() => {
@@ -58,23 +70,8 @@ chrome.runtime.onInstalled.addListener(() => {
         // Check if user already has a valid session
         chrome.storage.local.get(['isConnected', 'jwtToken', 'userId'], (result) => {
             if (result.isConnected && result.jwtToken && result.userId) {
-                debugLog('Existing session found, setting up refresh');
-                setupPeriodicTokenRefresh();
-                
-                // Try to maintain the session
-                setTimeout(async () => {
-                    try {
-                        const token = await getJWTToken();
-                        if (token && await isJWTTokenExpired(token)) {
-                            debugLog('Startup: Session token expired, attempting refresh');
-                            await refreshJWTToken();
-                        } else {
-                            debugLog('Startup: Session token valid');
-                        }
-                    } catch (error) {
-                        debugLog('Startup session maintenance failed:', error.message);
-                    }
-                }, 2000);
+                debugLog('Existing session found');
+                // No automatic refresh - will refresh only on 401/403 errors
             } else {
                 debugLog('No existing session found');
                 // Don't clear storage on update - preserve user data
@@ -84,43 +81,15 @@ chrome.runtime.onInstalled.addListener(() => {
     
     chrome.storage.local.clear(() => {
         debugLog('Storage cleared on fresh installation');
-        
-        // Set up automatic token refresh
-        setupPeriodicTokenRefresh();
     });
 });
 
-// Set up automatic token refresh every 30 minutes
+// Periodic token refresh disabled - only refresh on 401/403 errors from n8n
 function setupPeriodicTokenRefresh() {
-    debugLog('Setting up periodic token refresh');
+    debugLog('Periodic token refresh disabled - will refresh only on auth errors');
     
-    // Refresh token every 30 minutes
-    chrome.alarms.create('refreshToken', {
-        delayInMinutes: 30,
-        periodInMinutes: 30
-    });
-    
-    // Heartbeat disabled unless explicitly enabled
-    if (FEATURES.heartbeatEnabled) {
-        // Set up heartbeat to maintain connection every 10 minutes
-        chrome.alarms.create('heartbeat', {
-            delayInMinutes: 10,
-            periodInMinutes: 10
-        });
-    }
-    
-    // Also refresh on extension startup
-    setTimeout(async () => {
-        try {
-            const token = await getJWTToken();
-            if (token && await isJWTTokenExpired(token)) {
-                debugLog('Startup token refresh needed');
-                await refreshJWTToken();
-            }
-        } catch (error) {
-            debugLog('Startup token refresh failed:', error.message);
-        }
-    }, 5000); // Wait 5 seconds after startup
+    // No automatic refresh alarms
+    // Token will be refreshed only when n8n returns 401/403
 }
 
 // heartbeat function to maintain active connection (disabled by default)
@@ -186,33 +155,10 @@ async function performHeartbeat() {
     }
 }
 
-// Handle periodic refresh alarm
+// Alarm handler disabled - no periodic refresh
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-    if (alarm.name === 'refreshToken') {
-        debugLog('Periodic token refresh triggered');
-        
-        try {
-            const token = await getJWTToken();
-            const userId = await getStoredUserId();
-            
-            if (token && userId) {
-                // Check if token needs refresh
-                if (await isJWTTokenExpired(token)) {
-                    debugLog('Periodic refresh: token expired, refreshing');
-                    await refreshJWTToken();
-                } else {
-                    debugLog('Periodic refresh: token still valid');
-                }
-            } else {
-                debugLog('Periodic refresh: no token or userId found');
-            }
-        } catch (error) {
-            debugLog('Periodic token refresh failed:', error.message);
-        }
-    } else if (alarm.name === 'heartbeat') {
-        // Only run when enabled
-        await performHeartbeat();
-    }
+    debugLog('Alarm triggered but periodic refresh is disabled:', alarm.name);
+    // No automatic token refresh - only refresh on 401/403 errors
 });
 
 // Handle message forwarding for OAuth and chat
@@ -348,15 +294,16 @@ async function isJWTTokenExpired(jwtToken) {
     }
 }
 
-// Auto-refresh token if it's expired or getting close to expiration
+// Get JWT token without proactive refresh - only check if it exists
 async function ensureValidJWTToken() {
     const jwtToken = await getJWTToken();
     
-    if (!jwtToken || await isJWTTokenExpired(jwtToken)) {
-        debugLog('JWT token expired or missing, refreshing...');
-        return await refreshJWTToken();
+    if (!jwtToken) {
+        throw new Error('No JWT token found. Please authenticate first.');
     }
     
+    // Don't check expiry or refresh proactively
+    // Let n8n return 401 if token is expired, then we refresh
     return jwtToken;
 }
 
@@ -517,6 +464,9 @@ async function handleN8NRequest(data) {
         case 'task':
             url = 'https://connector.saai.dev/webhook/Task-Management';
             break;
+        case 'feedback':
+            url = 'https://connector.saai.dev/webhook/Feedback';
+            break;
         default:
             throw new Error('Invalid endpoint');
     }
@@ -531,7 +481,8 @@ async function handleN8NRequest(data) {
                 'Accept': 'application/json',
                 'Authorization': `Bearer ${jwtToken}`
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        _allowErrorResponse: true
     });
         
         console.log('[Background] n8n response status:', response.status);
@@ -539,8 +490,8 @@ async function handleN8NRequest(data) {
     
     if (!response.ok) {
             // Handle specific error cases
-            if (response.status === 401 || response.status === 402) {
-                console.log('[Background] JWT token expired (401/402), attempting automatic refresh and retry');
+            if (response.status === 401 || response.status === 402 || response.status === 403) {
+                console.log('[Background] JWT token issue (401/402/403), attempting automatic refresh and retry');
                 
                 try {
                     // Automatically refresh the token
@@ -589,38 +540,13 @@ async function handleN8NRequest(data) {
                     // Don't expose JWT errors to user - return a generic message
                     throw new Error('Service temporarily unavailable. Please try again.');
                 }
-            } else if (response.status === 403) {
-                debugLog('Access denied (403) - token may be invalid');
-                // Try to refresh token even for 403 errors
-                try {
-                    const newJwtToken = await refreshJWTToken();
-                    const retryResponse = await safeRequest(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'Authorization': `Bearer ${newJwtToken}`
-                        },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (retryResponse.ok) {
-                        const retryResult = await retryResponse.json();
-                        debugLog('Request successful after 403 token refresh');
-                        return retryResult;
-                    }
-                } catch (retryError) {
-                    debugLog('403 retry failed:', retryError.message);
-                }
-                throw new Error('Access denied. Please check your permissions.');
             } else if (response.status === 404) {
                 console.error('[Background] n8n webhook not found (404)');
                 // Return a fallback response instead of throwing error
                 return await handleFallbackResponse(endpoint, payload);
             } else if (response.status === 500) {
-                throw new Error('n8n server error (500) - please check webhook configuration');
-            } else if (response.status === 403) {
-                throw new Error('n8n webhook access denied (403) - check authentication');
+                console.error('[Background] n8n 500 error for endpoint:', endpoint, 'URL:', url);
+                throw new Error(`n8n server error (500) - webhook ${endpoint} crashed. Check n8n execution logs.`);
             } else {
                 const errorText = await response.text().catch(() => 'Unknown error');
                 throw new Error(`n8n webhook error (${response.status}): ${errorText}`);
@@ -680,7 +606,7 @@ async function handleFallbackResponse(endpoint, payload) {
         
         // Generate a mock response based on the user's message
         const mockResponses = {
-            'hello': 'Hi there! I\'m your Gmail assistant. How can I help you today?',
+            'hello': 'Hi there! I\'m your Inbox assistant. How can I help you today?',
             'help': 'I can help you with:\n• Summarizing your inbox\n• Finding important emails\n• Managing your tasks\n• Answering questions about your emails\n• Summarizing specific email threads (open the thread first)',
             'summarize': 'I\'d be happy to summarize your inbox! However, the n8n webhook is currently unavailable. Please check your webhook configuration.',
             'inbox': 'I can help you with your inbox! The n8n integration needs to be configured to access your Gmail data.',

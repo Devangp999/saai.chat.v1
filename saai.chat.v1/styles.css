@@ -1,4 +1,4 @@
-/* Sa.AI Gmail Assistant - Chic Professional Design */
+/* Sa.AI Inbox Assistant - Chic Professional Design */
 
 /* System Font Stack - No External Dependencies */
 
@@ -761,11 +761,12 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
 }
 
 .chat-input-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
 }
@@ -792,6 +793,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 #chat-input {
@@ -837,6 +839,7 @@
   overflow: hidden;
   background: #0f172a;
   color: white;
+  flex-shrink: 0;
 }
 
 .saai-action-btn svg {
@@ -916,40 +919,51 @@
   text-decoration: underline;
 }
 
-.saai-voice-exit-btn {
-  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-}
-
-.saai-voice-exit-btn:hover {
-  background: linear-gradient(135deg, #475569 0%, #334155 100%);
-  transform: translateY(-1px);
-}
+/* Voice exit button inherits from .saai-action-btn base styles */
 
 .saai-voice-indicator {
-  margin: 8px 20px 0;
-  padding: 8px 10px;
-  border: 1px solid var(--saai-border-light);
-  border-radius: var(--saai-border-radius);
+  margin: 0 0 12px 0;
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
   display: flex;
   align-items: center;
   gap: 8px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  flex-wrap: wrap;
+  min-height: 44px;
 }
+
+.saai-voice-indicator .mic {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.saai-voice-indicator .label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.saai-voice-indicator .bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 .saai-voice-indicator .bars i {
   display: inline-block;
-  width: 3px; height: 10px; margin-right: 2px;
-  background: #0f172a; animation: saai-bars 1s infinite ease-in-out;
+  width: 3px; 
+  height: 12px; 
+  background: #0f172a; 
+  animation: saai-bars 1s infinite ease-in-out;
+  border-radius: 2px;
 }
+
 .saai-voice-indicator .bars i:nth-child(2) { animation-delay: .2s; }
 .saai-voice-indicator .bars i:nth-child(3) { animation-delay: .4s; }
 @keyframes saai-bars { 0%,100%{transform:scaleY(.4)} 50%{transform:scaleY(1)} }
@@ -958,28 +972,54 @@
   display: flex;
   gap: 4px;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .voice-speed-btn {
-  background: #1e293b;
-  color: #94a3b8;
-  border: 1px solid #334155;
-  border-radius: 4px;
-  padding: 4px 8px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 8px;
   font-size: 10px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .voice-speed-btn:hover {
-  background: #334155;
-  color: #e2e8f0;
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .voice-speed-btn.active {
-  background: #3b82f6;
+  background: #0f172a;
   color: #fff;
-  border-color: #2563eb;
+  border-color: #0f172a;
+}
+
+/* Responsive voice indicator for narrow views */
+@media (max-width: 400px) {
+  .saai-voice-indicator {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  
+  .saai-voice-indicator .mic {
+    font-size: 16px;
+  }
+  
+  .saai-voice-indicator .label {
+    font-size: 12px;
+  }
+  
+  .voice-speed-btn {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
 }
 
 /* Connect Prompt - Welcome Screen */
@@ -1774,11 +1814,26 @@ body .AD[role="dialog"] {
   accent-color: var(--saai-primary);
 }
 
-.task-text {
+.task-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-text {
   font-size: 14px;
   color: var(--saai-text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.task-added-by {
+  font-size: 13px;
+  color: #888888 !important;
+  font-style: italic;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  margin-top: 2px;
+  display: block;
 }
 
 .task-priority {
@@ -1845,12 +1900,25 @@ body .AD[role="dialog"] {
 /* Add Task Section */
 .add-task-section {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 16px;
   padding: 16px;
   background: var(--saai-accent);
   border-radius: var(--saai-border-radius);
   border: 1px solid var(--saai-border-light);
+}
+
+.task-input-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.task-controls-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .new-task-input {
@@ -1866,6 +1934,27 @@ body .AD[role="dialog"] {
 
 .new-task-input:focus {
   outline: none;
+}
+
+.task-from-input {
+  flex: 0.5;
+  border: 1px solid var(--saai-border);
+  border-radius: var(--saai-border-radius);
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: var(--saai-background);
+  color: var(--saai-text-primary);
+}
+
+.task-from-input:focus {
+  outline: none;
+  border-color: var(--saai-primary);
+}
+
+.task-from-input::placeholder {
+  color: var(--saai-text-secondary);
+  opacity: 0.7;
 }
 
 /* Task Loading State */
@@ -3552,6 +3641,224 @@ body .AD[role="dialog"] {
   word-break: break-word;
 }
 
+/* Inbox Summary V2 – scoped overrides
+   Toggle by adding class "inbox-v2" to the same element that has
+   class "email-summary-table" in JS. This keeps old design intact
+   if the class is not present. */
+.email-summary-table.inbox-v2 {
+  margin: 14px auto;
+  display: grid;
+  gap: 14px;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  max-width: 1200px;
+  overflow-x: auto;
+  cursor: grab;
+}
+
+.email-summary-table.inbox-v2:active {
+  cursor: grabbing;
+}
+
+.email-summary-table.inbox-v2 .priority-section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-left-width: 4px;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  overflow-x: auto;
+  padding: 0;
+}
+
+.email-summary-table.inbox-v2 .priority-section > h4 {
+  margin: 0;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 1.2;
+  font-weight: 800;
+  font-size: 16px;
+  color: #111827;
+  background: linear-gradient(90deg, #f9fafb, #ffffff);
+  border: none;
+}
+
+.email-summary-table.inbox-v2 .email-count {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+
+.email-summary-table.inbox-v2 .priority-section[data-priority="high"] { border-left-color: #dc2626; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="medium"] { border-left-color: #d97706; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="low"] { border-left-color: #2563eb; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="replied"] { border-left-color: #16a34a; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="missed"] { border-left-color: #4b5563; }
+
+.email-summary-table.inbox-v2 .priority-section[data-priority="high"] > h4 { background: linear-gradient(90deg, #fef2f2, #fee2e2); }
+.email-summary-table.inbox-v2 .priority-section[data-priority="medium"] > h4 { background: linear-gradient(90deg, #fffbeb, #fef3c7); }
+.email-summary-table.inbox-v2 .priority-section[data-priority="low"] > h4 { background: linear-gradient(90deg, #eff6ff, #dbeafe); }
+.email-summary-table.inbox-v2 .priority-section[data-priority="replied"] > h4 { background: linear-gradient(90deg, #f0fdf4, #dcfce7); }
+.email-summary-table.inbox-v2 .priority-section[data-priority="missed"] > h4 { background: linear-gradient(90deg, #f9fafb, #f3f4f6); }
+
+.email-summary-table.inbox-v2 .priority-section[data-priority="high"] .email-count { color: #dc2626; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="medium"] .email-count { color: #d97706; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="low"] .email-count { color: #2563eb; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="replied"] .email-count { color: #16a34a; }
+.email-summary-table.inbox-v2 .priority-section[data-priority="missed"] .email-count { color: #4b5563; }
+
+.email-summary-table.inbox-v2 .email-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 15px;
+  border: none;
+  box-shadow: none;
+}
+
+/* Ensure table font size actually applies */
+.email-summary-table.inbox-v2 .email-table th {
+  font-size: 15px !important;
+  padding: 16px 24px; /* py-4 px-6 */
+}
+
+.email-summary-table.inbox-v2 .email-table td { 
+  font-size: 15px !important;
+  padding: 20px 24px; /* py-5 px-6 */
+}
+
+.email-summary-table.inbox-v2 .email-table thead tr {
+  background: linear-gradient(90deg, #f9fafb, #ffffff);
+}
+.email-summary-table.inbox-v2 .email-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #6b7280;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.email-summary-table.inbox-v2 .email-table tbody tr { border-bottom: 1px solid #f3f4f6; }
+.email-summary-table.inbox-v2 .email-table tbody tr:hover { background: linear-gradient(90deg, rgba(249,250,251,.5), transparent); }
+
+.email-summary-table.inbox-v2 .email-table td {
+  padding: 20px 24px;
+  vertical-align: top;
+  color: #111827;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.email-summary-table.inbox-v2 .sender-cell {
+  font-weight: 700;
+  color: #111827;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-summary-table.inbox-v2 .subject-cell { 
+  font-weight: 700; 
+  color: #111827;
+  max-width: 280px;
+  white-space: normal;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.email-summary-table.inbox-v2 td.received-cell { 
+  white-space: normal !important;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+
+.email-summary-table.inbox-v2 td.next-action-cell {
+  color: #111827;
+  font-weight: 500;
+  max-width: 380px;
+  white-space: normal !important;
+  overflow: hidden !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.5;
+}
+.email-summary-table.inbox-v2 .days-old-cell { color: #4b5563; font-weight: 600; text-align: center; }
+
+.email-summary-table.inbox-v2 .task-cell {
+  text-align: right;
+  vertical-align: middle;
+  padding: 20px 24px;
+  width: 140px;
+}
+
+.email-summary-table.inbox-v2 .saai-task-btn {
+  background: #111827;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px; /* py-1.5 px-3 */
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px; /* gap-1.5 */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.email-summary-table.inbox-v2 .saai-task-btn:hover {
+  background: #1f2937;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.email-summary-table.inbox-v2 .saai-task-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.email-summary-table.inbox-v2 .more-indicator {
+  padding: 10px 14px;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.email-summary-table.inbox-v2 .show-all-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #111827;
+  color: #fff;
+  border: 1px solid #111827;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s ease, transform .05s ease;
+}
+.email-summary-table.inbox-v2 .show-all-button:hover { opacity: .92; }
+.email-summary-table.inbox-v2 .show-all-button:active { transform: translateY(1px); }
+
+
 /* Enhanced priority section animations */
 .priority-section {
   animation: slideInUp 0.4s ease-out;
@@ -4260,5 +4567,756 @@ body .AD[role="dialog"] {
   50% { 
     transform: translateY(-10px) scale(1.1);
     opacity: 1;
+  }
+}
+
+/* ==================== FEEDBACK MODAL ==================== */
+
+.saai-feedback-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  backdrop-filter: blur(4px);
+}
+
+.saai-feedback-modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+.saai-feedback-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.feedback-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-form-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.feedback-select,
+.feedback-input,
+.feedback-textarea {
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #0f172a;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.feedback-select:focus,
+.feedback-input:focus,
+.feedback-textarea:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
+}
+
+.feedback-textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.feedback-hint {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.feedback-form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.feedback-cancel-btn,
+.feedback-submit-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feedback-cancel-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.feedback-cancel-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.feedback-submit-btn {
+  background: #0f172a;
+  color: white;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+
+.feedback-submit-btn:hover:not(:disabled) {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+.feedback-submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.feedback-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spin animation for loading state */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Form Type Selector */
+.form-type-selector {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.form-type-btn {
+  flex: 1;
+  max-width: 200px;
+  padding: 24px 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.form-type-btn:hover {
+  border-color: #0f172a;
+  background: #f8fafc;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+.form-type-btn svg {
+  color: #0f172a;
+}
+
+.form-type-btn span {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* File Input Styling */
+.feedback-file-input {
+  padding: 10px 14px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  color: #475569;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feedback-file-input:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.feedback-file-input:focus {
+  outline: none;
+  border-color: #0f172a;
+  border-style: solid;
+}
+
+/* Back Button */
+.feedback-back-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.feedback-back-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Feedback Footer */
+.feedback-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.feedback-footer-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.feedback-footer-btn:hover {
+  background: #0f172a;
+  color: white;
+  border-color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.feedback-footer-btn svg {
+  flex-shrink: 0;
+}
+
+/* ==================== IMPROVED FEEDBACK MODAL LAYOUT ==================== */
+
+.saai-feedback-modal-content {
+  max-width: 560px;
+}
+
+.saai-feedback-modal-body {
+  padding: 28px 32px;
+  max-height: 70vh;
+}
+
+.feedback-form {
+  gap: 24px;
+}
+
+/* Two-column row for name & designation / name & email */
+.feedback-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.feedback-form-group {
+  gap: 6px;
+}
+
+.feedback-form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.feedback-select,
+.feedback-input,
+.feedback-textarea {
+  padding: 11px 14px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.feedback-select:hover,
+.feedback-input:hover,
+.feedback-textarea:hover {
+  border-color: #cbd5e1;
+}
+
+.feedback-textarea {
+  line-height: 1.6;
+}
+
+.feedback-hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 6px;
+  display: block;
+}
+
+.feedback-file-input {
+  padding: 12px 14px;
+  font-size: 13px;
+  border: 1.5px dashed #cbd5e1;
+}
+
+.feedback-form-actions {
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.feedback-back-btn,
+.feedback-submit-btn {
+  padding: 11px 22px;
+  font-size: 14px;
+}
+
+.feedback-back-btn {
+  border: 1.5px solid #e2e8f0;
+}
+
+.feedback-submit-btn {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1), 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+/* Form Type Selector Improvements */
+.form-type-selector {
+  gap: 20px;
+  padding: 24px 0;
+}
+
+.form-type-btn {
+  padding: 28px 24px;
+  border: 2px solid #e2e8f0;
+}
+
+.form-type-btn span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Responsive for smaller modals */
+@media (max-width: 600px) {
+  .feedback-form-row {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .saai-feedback-modal-content {
+    width: 95%;
+    margin: 20px auto;
+  }
+  
+  .saai-feedback-modal-body {
+    padding: 20px 24px;
+  }
+}
+
+/* ==================== FEEDBACK MODAL HEADER & CLOSE BUTTON FIX ==================== */
+
+.saai-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid #f1f5f9;
+  background: white;
+  border-radius: 16px 16px 0 0;
+  position: relative;
+}
+
+.saai-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.saai-modal-title svg {
+  flex-shrink: 0;
+  color: #0f172a;
+}
+
+.saai-modal-close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 24px;
+  line-height: 1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  flex-shrink: 0;
+}
+
+.saai-modal-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  transform: scale(1.05);
+}
+
+.saai-modal-close-btn:active {
+  transform: scale(0.95);
+}
+
+/* ==================== ELEGANT TOAST NOTIFICATION SYSTEM ==================== */
+
+.saai-toast-notification {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  min-width: 320px;
+  max-width: 480px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  z-index: 999999;
+  opacity: 0;
+  transform: translateX(400px);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  border-left: 4px solid #cbd5e1;
+}
+
+.saai-toast-notification.saai-toast-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.saai-toast-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.saai-toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saai-toast-message {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.saai-toast-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.saai-toast-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Toast Type Variations */
+.saai-toast-success {
+  border-left-color: #10b981;
+}
+
+.saai-toast-success .saai-toast-icon {
+  background: #d1fae5;
+  color: #10b981;
+}
+
+.saai-toast-error {
+  border-left-color: #ef4444;
+}
+
+.saai-toast-error .saai-toast-icon {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.saai-toast-warning {
+  border-left-color: #f59e0b;
+}
+
+.saai-toast-warning .saai-toast-icon {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.saai-toast-info {
+  border-left-color: #3b82f6;
+}
+
+.saai-toast-info .saai-toast-icon {
+  background: #dbeafe;
+  color: #3b82f6;
+}
+
+/* ==================== CONFIRMATION MODAL STYLING ==================== */
+
+.saai-confirmation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  backdrop-filter: blur(4px);
+  animation: saai-fade-in 0.2s ease;
+}
+
+@keyframes saai-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.saai-confirmation-content {
+  max-width: 460px;
+  animation: saai-slide-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes saai-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.saai-confirmation-body {
+  padding: 32px 28px;
+  text-align: center;
+}
+
+.confirmation-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  line-height: 1;
+  animation: saai-icon-bounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confirmation-icon.success {
+  color: #10b981;
+  font-size: 72px;
+  font-weight: bold;
+}
+
+@keyframes saai-icon-bounce {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.confirmation-message {
+  margin-bottom: 28px;
+}
+
+.confirmation-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.confirmation-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.confirmation-subtitle strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.confirmation-btn {
+  flex: 1;
+  max-width: 160px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.confirmation-btn-no {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.confirmation-btn-no:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.confirmation-btn-yes {
+  background: #dc2626;
+  color: white;
+}
+
+.confirmation-btn-yes:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.confirmation-btn-primary {
+  background: #0f172a;
+  color: white;
+}
+
+.confirmation-btn-primary:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+.confirmation-btn svg {
+  flex-shrink: 0;
+}
+
+/* Responsive Toast for Mobile */
+@media (max-width: 600px) {
+  .saai-toast-notification {
+    left: 12px;
+    right: 12px;
+    top: 60px;
+    min-width: auto;
+    max-width: none;
+  }
+  
+  .saai-confirmation-content {
+    width: 95%;
+    margin: 0 auto;
+  }
+  
+  .confirmation-actions {
+    flex-direction: column;
+  }
+  
+  .confirmation-btn {
+    max-width: none;
   }
 }

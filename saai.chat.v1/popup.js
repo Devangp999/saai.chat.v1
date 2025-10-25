@@ -22,13 +22,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // If userId is present, ensure isConnected is set
             chrome.storage.local.set({ isConnected: true });
             debugLog('Found userId, setting isConnected and showing test button');
-            showStatus('Connected to Sa.AI Gmail Assistant', 'success');
+            showStatus('Connected to Sa.AI Inbox Assistant', 'success');
             authorizeBtn.style.display = 'none';
             testBtn.style.display = 'block';
         } else if (result.isConnected) {
             // Fallback for legacy state
             debugLog('Found legacy isConnected, showing test button');
-            showStatus('Connected to Sa.AI Gmail Assistant', 'success');
+            showStatus('Connected to Sa.AI Inbox Assistant', 'success');
             authorizeBtn.style.display = 'none';
             testBtn.style.display = 'block';
         } else {

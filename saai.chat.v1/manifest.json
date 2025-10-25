@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Sa.AI for Gmail",
   "version": "2.1",
-  "description": "AI-powered Gmail assistant with n8n integration for inbox summarization, thread summarization, voice modeand task management",
+  "description": "AI-powered Inbox assistant with n8n integration for inbox summarization, thread summarization, voice mode and task management",
   "permissions": [
     "activeTab",
     "storage",

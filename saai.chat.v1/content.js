@@ -1,4 +1,4 @@
-// Sa.AI Gmail Assistant Content Script
+// Sa.AI Inbox Assistant Content Script
 // Complete rewrite for seamless Gmail integration
 
 // Simple, reliable logging for production
@@ -786,7 +786,7 @@ async function initialize() {
     return;
   }
   
-  debugLog('Initializing Sa.AI Gmail Assistant');
+  debugLog('Initializing Sa.AI Inbox Assistant');
   
   try {
     // Load saved sidebar width from storage
@@ -899,9 +899,14 @@ async function startVoiceMode(indicator, exitBtn, voiceBtn) {
   voiceSession.awaitingConfirmation = false; // Reset confirmation state
   voiceSession.pendingCommand = null; // Clear any pending commands
   
-  exitBtn.style.display = 'inline-block';
+  // Show voice indicator and exit button
   indicator.style.display = 'flex';
-  voiceBtn.textContent = '⏸️';
+  exitBtn.style.display = 'flex';
+  
+  // Hide voice and send buttons
+  voiceBtn.style.display = 'none';
+  const sendBtn = document.querySelector('#send-btn');
+  if (sendBtn) sendBtn.style.display = 'none';
   
   // Load saved speed preference
   await loadVoiceSpeedPreference();
@@ -983,9 +988,12 @@ async function exitVoiceMode(indicator, exitBtn, voiceBtn) {
     chatArea.scrollTop = chatArea.scrollHeight;
   }
   
+  // Hide exit button and restore voice/send buttons
   if (exitBtn) exitBtn.style.display = 'none';
+  if (voiceBtn) voiceBtn.style.display = 'flex';
+  const sendBtn = document.querySelector('#send-btn');
+  if (sendBtn) sendBtn.style.display = 'flex';
   if (indicator) indicator.style.display = 'none';
-  if (voiceBtn) voiceBtn.textContent = '🎤';
 }
 
 async function startListening(indicator) {
@@ -1191,7 +1199,6 @@ async function stopListening(indicator, voiceBtn) {
   }
   
   if (indicator) indicator.style.display = 'none';
-  if (voiceBtn) voiceBtn.textContent = '🎤';
 }
 
 async function handleVoiceTurn(userText, indicator, confidence = 1) {
@@ -2253,11 +2260,21 @@ function createChatInterfaceHTML() {
         <div class="chat-welcome-icon">
             <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 48px; width: auto;" class="saai-logo-img-small"/>
         </div>
-        <h3 class="chat-welcome-title">Hi! I'm your Gmail assistant</h3>
+        <h3 class="chat-welcome-title">Hi! I'm your Inbox assistant</h3>
         <p class="chat-welcome-subtitle">How can I help you today?</p>
       </div>
     </div>
     <div class="chat-input-container">
+      <div id="voice-indicator" class="saai-voice-indicator" style="display:none">
+        <span class="mic">🎙️</span>
+        <span class="bars"><i></i><i></i><i></i></span>
+        <span class="label">Listening…</span>
+        <div class="voice-speed-controls">
+          <button id="voice-speed-100" class="voice-speed-btn active" title="Normal speed">1.0x</button>
+          <button id="voice-speed-125" class="voice-speed-btn" title="1.25x speed">1.25x</button>
+          <button id="voice-speed-150" class="voice-speed-btn" title="1.5x speed">1.5x</button>
+        </div>
+      </div>
       <div class="chat-input-row">
         <div class="chat-input-wrapper">
           <textarea id="chat-input" placeholder="Ask me anything about your emails..." rows="1"></textarea>
@@ -2277,23 +2294,12 @@ function createChatInterfaceHTML() {
               <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
             </svg>
           </button>
-        </div>
-      </div>
-      <button id="voice-exit-btn" class="saai-voice-exit-btn" title="Show chat transcript" style="display:none">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="voice-exit-btn" class="saai-action-btn saai-voice-exit-btn" title="Show chat transcript" style="display:none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-        Show Chat
       </button>
     </div>
-    <div id="voice-indicator" class="saai-voice-indicator" style="display:none">
-      <span class="mic">🎙️</span>
-      <span class="bars"><i></i><i></i><i></i></span>
-      <span class="label">Listening…</span>
-      <div class="voice-speed-controls">
-        <button id="voice-speed-100" class="voice-speed-btn active" title="Normal speed">1.0x</button>
-        <button id="voice-speed-125" class="voice-speed-btn" title="1.25x speed">1.25x</button>
-        <button id="voice-speed-150" class="voice-speed-btn" title="1.5x speed">1.5x</button>
       </div>
     </div>
   `;
@@ -2313,7 +2319,7 @@ function createConnectPromptHTML() {
       <h2 class="saai-connect-heading">Welcome to Sa.AI</h2>
       
       <p class="saai-connect-description">
-        Your intelligent Gmail assistant is ready to help you manage your inbox more efficiently.
+        Your intelligent Inbox assistant is ready to help you manage your inbox more efficiently.
       </p>
 
       <div class="saai-features">
@@ -2809,6 +2815,15 @@ function addSidebarEventListeners(sidebar, isConnected) {
     });
   } else {
     console.error('[SaAI-Content] Task button not found!');
+  }
+  
+  // Feedback button
+  const feedbackBtn = sidebar.querySelector('#feedback-btn');
+  if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', () => {
+      console.log('[SaAI-Content] Feedback button clicked!');
+      showFeedbackModal();
+    });
   }
   
   // Clear chat button
@@ -3750,15 +3765,108 @@ function computeDaysOld(input) {
   }
 }
 
+// Format a date/time-like value into compact relative time (e.g., 2h ago, 1d ago)
+function formatRelativeTime(dateLike) {
+  if (!dateLike) return '—';
+  try {
+    let dateObj;
+    if (typeof dateLike === 'number') {
+      const ms = dateLike < 1e12 ? dateLike * 1000 : dateLike;
+      dateObj = new Date(ms);
+    } else if (typeof dateLike === 'string' && /^\d+$/.test(dateLike.trim())) {
+      const n = parseInt(dateLike.trim(), 10);
+      const ms = n < 1e12 ? n * 1000 : n;
+      dateObj = new Date(ms);
+    } else {
+      dateObj = new Date(dateLike);
+    }
+    if (isNaN(dateObj.getTime())) return '—';
+
+    const now = new Date();
+    const diffMs = now.getTime() - dateObj.getTime();
+    if (diffMs < 0) return '—';
+
+    const sec = Math.floor(diffMs / 1000);
+    const min = Math.floor(sec / 60);
+    const hr = Math.floor(min / 60);
+    const day = Math.floor(hr / 24);
+
+    if (day > 0) return day === 1 ? '1 day' : `${day} days`;
+    if (hr > 0) return hr === 1 ? '1h ago' : `${hr}h ago`;
+    if (min > 0) return min === 1 ? '1m ago' : `${min}m ago`;
+    return 'Just now';
+  } catch (e) {
+    return '—';
+  }
+}
+
+// Format numeric days or date-like into compact label (Today, 1 day, N days)
+function formatDaysLabel(value) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value === 0) return 'Today';
+    if (value === 1) return '1 day';
+    return `${value} days`;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const n = parseInt(trimmed, 10);
+      return formatDaysLabel(n);
+    }
+    const computed = computeDaysOld(trimmed);
+    return computed === null ? '—' : formatDaysLabel(computed);
+  }
+  const computed = computeDaysOld(value);
+  return computed === null ? '—' : formatDaysLabel(computed);
+}
+
+// Determine the best RECEIVED text using multiple fallbacks
+function getReceivedText(email) {
+  if (!email || typeof email !== 'object') return '—';
+  // If backend already gave a relative string, prefer it
+  const relativeCandidates = [
+    email.received,
+    email.received_text,
+    email.relativeTime,
+    email.relative_time
+  ];
+  for (const v of relativeCandidates) {
+    if (typeof v === 'string' && v.trim()) return v.trim();
+  }
+  // If we have days_old, convert to label
+  if (email.days_old !== undefined) return formatDaysLabel(email.days_old);
+  if (email['days old'] !== undefined) return formatDaysLabel(email['days old']);
+
+  // Try timestamp-like fields
+  const timeCandidates = [
+    email.receivedAt,
+    email.received_at,
+    email.dateTime,
+    email.datetime,
+    email.date,
+    email.time,
+    email.timestamp,
+    email.ts,
+    email.message_date,
+    email.internalDate
+  ];
+  for (const t of timeCandidates) {
+    const rel = formatRelativeTime(t);
+    if (rel && rel !== '—') return rel;
+  }
+  return '—';
+}
+
 function appendTableMessage(sender, emailData, chatArea) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}-message`;
   
   const tableContainer = document.createElement('div');
-  tableContainer.className = 'email-summary-table';
+  tableContainer.className = 'email-summary-table inbox-v2';
   
   const title = document.createElement('h3');
-  title.textContent = '📧 Gmail Summary';
+  title.textContent = '📧 Inbox Summary';
   tableContainer.appendChild(title);
   
   // Helper function to clean and format email addresses
@@ -3768,23 +3876,9 @@ function appendTableMessage(sender, emailData, chatArea) {
     // Remove angle brackets and extract email
     let cleanEmail = emailString.replace(/[<>]/g, '').trim();
     
-    // If it's a very long string (like the one in the image), try to extract a readable part
-    if (cleanEmail.length > 50) {
-      // Try to find an @ symbol and extract domain
-      const atIndex = cleanEmail.indexOf('@');
-      if (atIndex > 0) {
-        const domain = cleanEmail.substring(atIndex + 1);
-        // Extract a readable domain name
-        const domainParts = domain.split('.');
-        if (domainParts.length >= 2) {
-          return `${domainParts[0]}.${domainParts[1]}`;
-        }
-        return domain;
-      }
-      
-      // If no @ symbol, try to extract a readable part
-      const readablePart = cleanEmail.substring(0, 20);
-      return readablePart + '...';
+    // Truncate for compact display
+    if (cleanEmail.length > 25) {
+      return cleanEmail.substring(0, 22) + '...';
     }
     
     // For normal email addresses, just clean them up
@@ -3838,11 +3932,11 @@ function appendTableMessage(sender, emailData, chatArea) {
   }
   
   const priorities = [
-    { key: 'high_priority_emails', label: 'High Priority', color: '#ffebee', icon: '🔴' },
-    { key: 'medium_priority', label: 'Medium Priority', color: '#fff3e0', icon: '🟡' },
-    { key: 'low_priority', label: 'Low Priority', color: '#f0f9ff', icon: '🔵' },
-    { key: 'already_replied_closed_threads', label: 'Already Replied', color: '#e8f5e8', icon: '✅' },
-    { key: 'missed_or_ignored_emails', label: 'Missed/Ignored', color: '#f5f5f5', icon: '⏰' }
+    { key: 'high_priority_emails', label: 'High Priority', color: '#ffebee', icon: '⊗' },
+    { key: 'medium_priority', label: 'Medium Priority', color: '#fff3e0', icon: '⚠' },
+    { key: 'low_priority', label: 'Low Priority', color: '#f0f9ff', icon: 'ⓘ' },
+    { key: 'already_replied_closed_threads', label: 'Closed/Already Replied', color: '#e8f5e8', icon: '✓' },
+    { key: 'missed_or_ignored_emails', label: 'Missed or Ignored', color: '#f5f5f5', icon: '⏱' }
   ];
   
   let totalRows = 0;
@@ -3888,13 +3982,25 @@ function appendTableMessage(sender, emailData, chatArea) {
       const table = document.createElement('table');
       table.className = 'email-table';
       
+      // Define column widths matching EmailTable.tsx reference
+      const colgroup = document.createElement('colgroup');
+      colgroup.innerHTML = `
+        <col style="width: 200px;">
+        <col style="width: 280px;">
+        <col style="width: 120px;">
+        <col style="width: 380px;">
+        <col style="width: 140px;">
+      `;
+      table.appendChild(colgroup);
+      
       const thead = document.createElement('thead');
       thead.innerHTML = `
         <tr>
-          <th>Subject</th>
           <th>From</th>
+          <th>Subject</th>
+          <th>Received</th>
           <th>Next Action</th>
-          <th>Days Old</th>
+          <th></th>
         </tr>
       `;
       table.appendChild(thead);
@@ -3906,15 +4012,21 @@ function appendTableMessage(sender, emailData, chatArea) {
         const row = document.createElement('tr');
         row.className = idx % 2 === 0 ? 'even-row' : 'odd-row';
         
-        const subjectCell = document.createElement('td');
-        subjectCell.className = 'subject-cell';
-        subjectCell.textContent = truncateSubject(email.subject);
-        subjectCell.title = email.subject; // Show full subject on hover
-        
         const senderCell = document.createElement('td');
         senderCell.className = 'sender-cell';
         senderCell.textContent = formatEmailAddress(email.sender);
         senderCell.title = email.sender; // Show full email on hover
+        
+        const subjectCell = document.createElement('td');
+        subjectCell.className = 'subject-cell';
+        subjectCell.textContent = email.subject || 'No Subject';
+        subjectCell.title = email.subject; // Show full subject on hover
+        
+        const receivedCell = document.createElement('td');
+        receivedCell.className = 'received-cell';
+        const receivedText = getReceivedText(email);
+        receivedCell.textContent = receivedText;
+        receivedCell.title = receivedText;
         
         const nextActionCell = document.createElement('td');
         nextActionCell.className = 'next-action-cell';
@@ -3922,19 +4034,65 @@ function appendTableMessage(sender, emailData, chatArea) {
         nextActionCell.textContent = formatNextAction(nextActionValue);
         nextActionCell.title = nextActionValue; // Show full action on hover
         
-        const daysOldCell = document.createElement('td');
-        daysOldCell.className = 'days-old-cell';
-        
-        // For all sections, show data as provided by N8N (no overrides)
-        const daysOld = email.days_old !== undefined ? email.days_old : 
-                       email['days old'] !== undefined ? email['days old'] :
-                       (email.receivedAt ? computeDaysOld(email.receivedAt) : null);
-        daysOldCell.textContent = formatDaysOld(daysOld);
-        
-        row.appendChild(subjectCell);
         row.appendChild(senderCell);
+        row.appendChild(subjectCell);
+        row.appendChild(receivedCell);
         row.appendChild(nextActionCell);
-        row.appendChild(daysOldCell);
+
+        const taskCell = document.createElement('td');
+        taskCell.className = 'task-cell';
+        const taskBtn = document.createElement('button');
+        taskBtn.innerHTML = '<span style="margin-right: 4px;">+</span>Add to Tasks';
+        taskBtn.className = 'saai-task-btn';
+        taskBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          console.log('[SaAI] Add to Tasks button clicked!');
+          
+          // Determine priority based on the section
+          let priorityLevel = 'medium'; // default
+          if (priority.key === 'high_priority_emails') priorityLevel = 'high';
+          else if (priority.key === 'medium_priority') priorityLevel = 'medium';
+          else if (priority.key === 'low_priority') priorityLevel = 'low';
+          else if (priority.key === 'missed_or_ignored_emails') priorityLevel = 'low'; // Missed emails = low priority
+          else if (priority.key === 'already_replied_closed_threads') priorityLevel = 'low'; // Already replied = low priority
+          
+          console.log('[SaAI] Priority determined:', priorityLevel);
+          console.log('[SaAI] Email data:', {
+            from: email.sender,
+            context: email.subject || 'No Subject',
+            taskName: nextActionValue || 'Review and respond to email',
+            priority: priorityLevel
+          });
+          
+          // Send task to webhook
+          try {
+            // Disable button and show loading state
+            taskBtn.disabled = true;
+            taskBtn.innerHTML = '<span style="margin-right: 4px;">⏳</span>Adding...';
+            
+            await addEmailToTasks({
+              from: email.sender,
+              context: email.subject || 'No Subject',
+              taskName: nextActionValue || 'Review and respond to email',
+              priority: priorityLevel
+            });
+            
+            // Success state
+            taskBtn.innerHTML = '<span style="margin-right: 4px;">✓</span>Added';
+            taskBtn.style.background = '#16a34a';
+            taskBtn.style.cursor = 'default';
+            
+          } catch (error) {
+            console.error('[SaAI] Error in button click handler:', error);
+            // Reset button on error
+            taskBtn.disabled = false;
+            taskBtn.innerHTML = '<span style="margin-right: 4px;">+</span>Add to Tasks';
+          }
+        });
+        taskCell.appendChild(taskBtn);
+        row.appendChild(taskCell);
         tbody.appendChild(row);
       });
       
@@ -3960,13 +4118,7 @@ function appendTableMessage(sender, emailData, chatArea) {
     viewFullBtn.className = 'view-full-btn';
     viewFullBtn.id = 'view-full-summary-btn';
     
-    // Add both onclick and addEventListener for better compatibility
-    viewFullBtn.onclick = () => {
-      debugLog('View Full Summary button clicked (onclick)');
-      debugLog('Email data for full table:', emailData);
-      openFullTable(emailData);
-    };
-    
+    // Single handler to prevent double-opening
     viewFullBtn.addEventListener('click', (e) => {
       debugLog('View Full Summary button clicked (addEventListener)');
       e.preventDefault();
@@ -4007,6 +4159,7 @@ function appendTableMessage(sender, emailData, chatArea) {
 
 function openFullTable(emailData) {
   try {
+    console.log('[SaAI] Opening full table with data:', emailData);
     debugLog('Opening full table with data:', emailData);
     
     const tableWindow = window.open('', '_blank');
@@ -4054,23 +4207,9 @@ function openFullTable(emailData) {
     // Remove angle brackets and extract email
     let cleanEmail = emailString.replace(/[<>]/g, '').trim();
     
-    // If it's a very long string, try to extract a readable part
-    if (cleanEmail.length > 50) {
-      // Try to find an @ symbol and extract domain
-      const atIndex = cleanEmail.indexOf('@');
-      if (atIndex > 0) {
-        const domain = cleanEmail.substring(atIndex + 1);
-        // Extract a readable domain name
-        const domainParts = domain.split('.');
-        if (domainParts.length >= 2) {
-          return `${domainParts[0]}.${domainParts[1]}`;
-        }
-        return domain;
-      }
-      
-      // If no @ symbol, try to extract a readable part
-      const readablePart = cleanEmail.substring(0, 20);
-      return readablePart + '...';
+    // Truncate for compact display
+    if (cleanEmail.length > 25) {
+      return cleanEmail.substring(0, 22) + '...';
     }
     
     // For normal email addresses, just clean them up
@@ -4170,12 +4309,13 @@ function openFullTable(emailData) {
   tableWindow.document.write(`
     <html>
       <head>
-        <title>Gmail Summary</title>
+        <title>Inbox Summary</title>
         <style>
           body { 
             background: #ffffff; 
             color: #0f172a; 
             font-family: Inter, Segoe UI, Arial, sans-serif; 
+            font-size: 16px; /* bump overall */
             padding: 32px; 
             margin: 0;
           }
@@ -4254,28 +4394,27 @@ function openFullTable(emailData) {
             padding-right: 8px;
           }
           .sender-cell {
-            font-size: 13px;
-            color: #64748b;
-            max-width: 100%;
-            word-wrap: break-word;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            padding-left: 8px;
-          }
-          .next-action-cell {
-            font-size: 13px;
+            font-size: 16px;
             color: #0f172a;
             max-width: 100%;
             word-wrap: break-word;
-            line-height: 1.3;
-            font-weight: 500;
-            font-style: italic;
+            font-family: Inter, Segoe UI, Arial, sans-serif;
+            padding-left: 8px;
           }
-          .days-old-cell {
-            font-size: 13px;
-            color: #64748b;
+          .next-action-cell {
+            font-size: 16px;
+            color: #0f172a;
             max-width: 100%;
             word-wrap: break-word;
-            font-weight: 600;
+            line-height: 1.4;
+            font-weight: 500;
+          }
+          .days-old-cell {
+            font-size: 16px;
+            color: #0f172a;
+            max-width: 100%;
+            word-wrap: break-word;
+            font-weight: 500;
             text-align: center;
             font-family: 'Inter', sans-serif;
             vertical-align: middle;
@@ -4307,15 +4446,177 @@ function openFullTable(emailData) {
           }
           /* Desktop-only; mobile rules removed */
         </style>
+        <style>
+          /* Inbox Summary V2 overrides for full-view window */
+          body {
+            max-width: 1200px;
+            margin: 32px auto;
+          }
+          .priority-section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-left-width: 4px;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.04);
+            overflow: hidden;
+            padding: 0;
+            margin-bottom: 24px;
+          }
+          .priority-section > .priority-header {
+            margin: 0;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            line-height: 1.2;
+            font-weight: 800;
+            font-size: 16px;
+            color: #111827;
+            background: linear-gradient(90deg, #f9fafb, #ffffff);
+            border: none;
+          }
+          .priority-section[data-priority="high"] { border-left-color: #dc2626; }
+          .priority-section[data-priority="medium"] { border-left-color: #d97706; }
+          .priority-section[data-priority="low"] { border-left-color: #2563eb; }
+          .priority-section[data-priority="replied"] { border-left-color: #16a34a; }
+          .priority-section[data-priority="missed"] { border-left-color: #4b5563; }
+
+          .priority-section[data-priority="high"] > .priority-header { background: linear-gradient(90deg, #fef2f2, #fee2e2); }
+          .priority-section[data-priority="medium"] > .priority-header { background: linear-gradient(90deg, #fffbeb, #fef3c7); }
+          .priority-section[data-priority="low"] > .priority-header { background: linear-gradient(90deg, #eff6ff, #dbeafe); }
+          .priority-section[data-priority="replied"] > .priority-header { background: linear-gradient(90deg, #f0fdf4, #dcfce7); }
+          .priority-section[data-priority="missed"] > .priority-header { background: linear-gradient(90deg, #f9fafb, #f3f4f6); }
+
+          .priority-section .email-count {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            box-shadow: 0 1px 2px rgba(0,0,0,.06);
+          }
+          .priority-section[data-priority="high"] .email-count { color: #dc2626; }
+          .priority-section[data-priority="medium"] .email-count { color: #d97706; }
+          .priority-section[data-priority="low"] .email-count { color: #2563eb; }
+          .priority-section[data-priority="replied"] .email-count { color: #16a34a; }
+          .priority-section[data-priority="missed"] .email-count { color: #4b5563; }
+
+          .email-table { 
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 16px; 
+            border: none;
+            box-shadow: none;
+          }
+          .email-table {
+            table-layout: fixed;
+            width: 100%;
+          }
+          .email-table th { 
+            font-size: 16px !important; 
+            padding: 16px 24px;
+          }
+          .email-table td { 
+            font-size: 16px !important; 
+            padding: 20px 24px;
+          }
+          .email-table thead tr { background: linear-gradient(90deg, #f9fafb, #ffffff); }
+          .email-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-weight: 800;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #6b7280;
+            border-bottom: 2px solid #e5e7eb;
+          }
+          .email-table tbody tr { border-bottom: 1px solid #f3f4f6; }
+          .email-table tbody tr:hover { background: linear-gradient(90deg, rgba(249,250,251,.5), transparent); }
+          .email-table td {
+            padding: 16px 18px;
+            vertical-align: top;
+            color: #111827;
+            font-weight: 500;
+            line-height: 1.5;
+          }
+          .sender-cell {
+            font-weight: 700;
+            color: #111827;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .subject-cell {
+            font-weight: 700;
+            color: #111827;
+            max-width: 280px;
+            white-space: normal;
+            word-wrap: break-word;
+            line-height: 1.4;
+          }
+          .received-cell {
+            white-space: normal !important;
+            word-wrap: break-word;
+            line-height: 1.4;
+          }
+          .next-action-cell {
+            color: #111827;
+            font-weight: 500;
+            max-width: 380px;
+            white-space: normal !important;
+            overflow: hidden !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.5;
+          }
+          .days-old-cell { color: #4b5563; font-weight: 600; text-align: center; }
+          .task-cell {
+            text-align: right;
+            vertical-align: middle;
+            padding: 20px 24px;
+            width: 140px;
+          }
+          .saai-task-btn-popup {
+            background: #111827;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+          .saai-task-btn-popup:hover {
+            background: #1f2937;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+          }
+          .saai-task-btn-popup:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          }
+        </style>
       </head>
       <body>
-        <h2>📧 Gmail Summary (Full Table)</h2>
+        <h2>📧 Inbox Summary (Full Table)</h2>
         ${[
-          { key: 'high_priority_emails', label: 'High Priority', icon: '🔴' },
-          { key: 'medium_priority', label: 'Medium Priority', icon: '🟡' },
-          { key: 'low_priority', label: 'Low Priority', icon: '🔵' },
-          { key: 'already_replied_closed_threads', label: 'Already Replied', icon: '✅' },
-          { key: 'missed_or_ignored_emails', label: 'Missed/Ignored', icon: '⏰' }
+          { key: 'high_priority_emails', label: 'High Priority', icon: '⊗' },
+          { key: 'medium_priority', label: 'Medium Priority', icon: '⚠' },
+          { key: 'low_priority', label: 'Low Priority', icon: 'ⓘ' },
+          { key: 'already_replied_closed_threads', label: 'Closed/Already Replied', icon: '✓' },
+          { key: 'missed_or_ignored_emails', label: 'Missed or Ignored', icon: '⏱' }
         ].map(priority => {
           const emails = normalizedData[priority.key];
           if (emails && emails.length > 0) {
@@ -4328,43 +4629,53 @@ function openFullTable(emailData) {
                   ${priority.icon} ${priority.label} 
                   <span class="email-count">(${emails.length} emails)</span>
                 </div>
-                <table>
+                <table class="email-table">
+                  <colgroup>
+                    <col style="width: 200px;">
+                    <col style="width: 280px;">
+                    <col style="width: 120px;">
+                    <col style="width: 380px;">
+                    <col style="width: 140px;">
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th>Subject</th>
                       <th>From</th>
+                      <th>Subject</th>
+                      <th>Received</th>
                       <th>Next Action</th>
-                      <th>Days Old</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     ${emails.map(email => {
                       // Handle different priority types for full table view
-                      let senderText, nextActionText, daysOldText;
+                      let senderText, nextActionText, receivedText;
                       
-                      if (priority.key === 'missed_or_ignored_emails') {
-                        senderText = formatEmailAddress(email.sender);
-                        nextActionText = '—';
-                        const daysOld = email.days_old !== undefined ? email.days_old : 
-                                       email['days old'] !== undefined ? email['days old'] :
-                                       (email.receivedAt ? computeDaysOld(email.receivedAt) : null);
-                        daysOldText = formatDaysOld(daysOld);
-                      } else {
                         senderText = formatEmailAddress(email.sender);
                         const na = extractNextAction(email);
-                        nextActionText = formatNextAction(na);
-                        const daysOld = email.days_old !== undefined ? email.days_old : 
-                                       email['days old'] !== undefined ? email['days old'] :
-                                       (email.receivedAt ? computeDaysOld(email.receivedAt) : null);
-                        daysOldText = formatDaysOld(daysOld);
-                      }
+                      nextActionText = priority.key === 'missed_or_ignored_emails' ? '—' : formatNextAction(na);
+                      receivedText = getReceivedText(email);
+                      
+                      const emailData = JSON.stringify({
+                        sender: email.sender,
+                        subject: email.subject || 'No Subject',
+                        nextAction: na || 'Review and respond to email',
+                        priorityKey: priority.key
+                      }).replace(/"/g, '&quot;');
+                      
+                      const btnId = `task-btn-${priority.key}-${emails.indexOf(email)}`;
                       
                       return `
                         <tr>
-                          <td class="subject-cell" title="${email.subject}">${truncateSubject(email.subject)}</td>
                           <td class="sender-cell" title="${email.sender}">${senderText}</td>
+                          <td class="subject-cell" title="${email.subject}">${email.subject || 'No Subject'}</td>
+                          <td class="received-cell">${receivedText}</td>
                           <td class="next-action-cell" title="${(extractNextAction(email) || '').replace(/"/g, '&quot;')}">${nextActionText}</td>
-                          <td class="days-old-cell">${daysOldText}</td>
+                          <td class="task-cell">
+                            <button id="${btnId}" class="saai-task-btn-popup" data-email="${emailData}">
+                              <span style="margin-right: 4px;">+</span>Add to Tasks
+                            </button>
+                          </td>
                         </tr>
                       `;
                     }).join('')}
@@ -4376,18 +4687,73 @@ function openFullTable(emailData) {
           return '';
         }).join('')}
         <div style="text-align: center;">
-          <button onclick="window.close()">Close</button>
+          <button id="close-btn">Close</button>
         </div>
-        <script>
-          // Ensure close button works
-          document.querySelector('button').addEventListener('click', function() {
-            window.close();
-          });
-        </script>
       </body>
     </html>
   `);
     tableWindow.document.close();
+    
+    // Attach event listeners after the document is loaded (CSP-compliant way)
+    setTimeout(() => {
+      try {
+        console.log('[SaAI] Attaching event listeners to popup buttons');
+        
+        // Track current button being processed
+        let currentButton = null;
+        
+        // Get all task buttons in the popup
+        const taskButtons = tableWindow.document.querySelectorAll('.saai-task-btn-popup');
+        console.log('[SaAI] Found task buttons in popup:', taskButtons.length);
+        
+        taskButtons.forEach(btn => {
+          btn.addEventListener('click', function() {
+            console.log('[SaAI Popup] Button clicked');
+            const emailData = this.getAttribute('data-email');
+            console.log('[SaAI Popup] Email data:', emailData);
+            
+            currentButton = this;
+            // Disable button and show loading
+            this.disabled = true;
+            this.innerHTML = '<span style="margin-right: 4px;">⏳</span>Adding...';
+            
+            console.log('[SaAI Popup] Sending message to opener window');
+            // Send message to opener window (this main window)
+            window.postMessage({action: 'addEmailToTask', data: emailData, fromPopup: true}, '*');
+            console.log('[SaAI Popup] Message sent');
+          });
+        });
+        
+        // Close button
+        const closeBtn = tableWindow.document.getElementById('close-btn');
+        if (closeBtn) {
+          closeBtn.addEventListener('click', function() {
+            tableWindow.close();
+          });
+        }
+        
+        // Listen for response from main window
+        window.addEventListener('message', (event) => {
+          if (event.data && event.data.action === 'taskAddedSuccess' && event.data.forPopup && currentButton) {
+            console.log('[SaAI Popup] Task added successfully');
+            currentButton.innerHTML = '<span style="margin-right: 4px;">✓</span>Added';
+            currentButton.style.background = '#16a34a';
+            currentButton.style.cursor = 'default';
+            currentButton = null;
+          } else if (event.data && event.data.action === 'taskAddedError' && event.data.forPopup && currentButton) {
+            console.log('[SaAI Popup] Task add failed:', event.data.error);
+            currentButton.disabled = false;
+            currentButton.innerHTML = '<span style="margin-right: 4px;">+</span>Add to Tasks';
+            alert('Failed to add task: ' + event.data.error);
+            currentButton = null;
+          }
+        });
+        
+        console.log('[SaAI] Event listeners attached successfully');
+      } catch (error) {
+        console.error('[SaAI] Error attaching event listeners:', error);
+      }
+    }, 100);
     
     debugLog('Full table opened successfully');
     
@@ -4735,6 +5101,12 @@ async function getJWTToken() {
   return storage.jwtToken;
 }
 
+// Get User ID from storage
+async function getUserId() {
+  const storage = await chrome.storage.local.get(['userId']);
+  return storage.userId;
+}
+
 // Check if JWT token is expired (parse JWT payload for exp claim)
 async function isJWTTokenExpired(jwtToken) {
   try {
@@ -4962,22 +5334,65 @@ function showOAuthSuccess() {
 }
 
 function showStatus(message, type) {
-  // Create status element
-  const statusDiv = document.createElement('div');
-  statusDiv.className = `saai-status status ${type}`;
-  statusDiv.textContent = message;
-  
-  // Add to sidebar
-  if (sidebarElement) {
-    sidebarElement.appendChild(statusDiv);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-      if (statusDiv.parentNode) {
-        statusDiv.remove();
-      }
-    }, 3000);
+  // Use the new elegant toast notification system
+  showToast(message, type);
+}
+
+// Elegant Toast Notification System
+function showToast(message, type = 'info', duration = 5000) {
+  // Remove any existing toast
+  const existingToast = document.querySelector('.saai-toast-notification');
+  if (existingToast) {
+    existingToast.remove();
   }
+  
+  // Create toast container
+  const toast = document.createElement('div');
+  toast.className = `saai-toast-notification saai-toast-${type}`;
+  
+  // Icon based on type
+  let icon = '';
+  switch(type) {
+    case 'success':
+      icon = '✓';
+      break;
+    case 'error':
+      icon = '✕';
+      break;
+    case 'warning':
+      icon = '⚠';
+      break;
+    case 'info':
+    default:
+      icon = 'ℹ';
+      break;
+  }
+  
+  toast.innerHTML = `
+    <div class="saai-toast-icon">${icon}</div>
+    <div class="saai-toast-content">
+      <div class="saai-toast-message">${message}</div>
+    </div>
+    <button class="saai-toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  
+  // Add to body
+  document.body.appendChild(toast);
+  
+  // Trigger animation
+  setTimeout(() => {
+    toast.classList.add('saai-toast-show');
+  }, 10);
+  
+  // Auto-remove after duration
+  setTimeout(() => {
+    toast.classList.remove('saai-toast-show');
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.remove();
+      }
+    }, 300);
+  }, duration);
 }
 
 function injectSuggestions() {
@@ -5013,7 +5428,7 @@ function injectSuggestions() {
       </svg>`
     },
     {
-      text: 'Extract all tasks',
+      text: 'Draft an email',
       icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="9,11 12,14 22,4"/>
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
@@ -5025,7 +5440,7 @@ function injectSuggestions() {
         <circle cx="12" cy="12" r="10"/>
         <polyline points="12,6 12,12 16,14"/>
       </svg>`
-    }
+    },
   ];
   
   const suggestionsDiv = document.createElement('div');
@@ -5357,6 +5772,13 @@ function updateTaskModalWithData(modal, data) {
   // Check if data contains tasks array
   const webhookTasks = Array.isArray(data) ? data : (data.tasks || []);
   
+  // Debug: Log webhook tasks to see what fields they have
+  console.log('[Task Modal] Webhook tasks received:', webhookTasks);
+  if (webhookTasks.length > 0) {
+    console.log('[Task Modal] First webhook task fields:', Object.keys(webhookTasks[0]));
+    console.log('[Task Modal] First webhook task:', webhookTasks[0]);
+  }
+  
   // Get manual tasks from localStorage
   const manualTasks = getTasks().filter(task => task.isManual);
   
@@ -5382,6 +5804,17 @@ function updateTaskModalWithData(modal, data) {
   // Convert map values back to array
   const allTasks = Array.from(taskMap.values());
   
+  // Debug: Log all tasks with their sources and from fields
+  console.log('[Task Modal] All tasks after merging:', allTasks);
+  allTasks.forEach((task, idx) => {
+    console.log(`[Task Modal] Task ${idx}:`, {
+      task: task.task || task.text,
+      source: task.source,
+      from: task.from,
+      hasFrom: !!task.from
+    });
+  });
+  
   modal.querySelector('.task-modal-body').innerHTML = `
     <div class="task-list">
       ${allTasks.length === 0 ? `
@@ -5398,11 +5831,37 @@ function updateTaskModalWithData(modal, data) {
           </p>
         </div>
       ` : ''}
-      ${allTasks.map((task, index) => `
+      ${allTasks.map((task, index) => {
+        // Determine the "added by" text based on source
+        let addedByText = '';
+        console.log(`[Task Modal Render] Task ${index}:`, { source: task.source, from: task.from, email: task.email });
+        
+        if (task.source === 'manual') {
+          // For manual tasks, check if 'from' was provided
+          const email = task.from || task.email || task.sender || task.from_email || task.fromEmail;
+          if (email) {
+            const truncatedEmail = email.length > 25 ? email.substring(0, 22) + '...' : email;
+            addedByText = `from ${truncatedEmail}`;
+          } else {
+            addedByText = 'added by you';
+          }
+        } else {
+          // Check for email in multiple possible fields
+          const email = task.from || task.email || task.sender || task.from_email || task.fromEmail;
+          if (email) {
+            const truncatedEmail = email.length > 25 ? email.substring(0, 22) + '...' : email;
+            addedByText = `from ${truncatedEmail}`;
+          }
+        }
+        
+        return `
         <div class="task-item" data-id="${task.id || `task-${index}`}" data-source="${task.source || 'unknown'}">
           <div class="task-content">
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+            <div class="task-info">
             <span class="task-text">${task.task || task.text || task.description || task.title || 'Untitled Task'}</span>
+              ${addedByText ? `<span class="task-added-by" title="${task.from || ''}">${addedByText}</span>` : ''}
+            </div>
             ${task.priority ? `<span class="task-priority ${task.priority.toLowerCase()}">${task.priority}</span>` : ''}
             <button class="task-delete-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5412,12 +5871,17 @@ function updateTaskModalWithData(modal, data) {
             </button>
           </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
     
     <!-- Manual Task Addition Section -->
     <div class="add-task-section">
+      <div class="task-input-row">
       <input type="text" class="new-task-input" placeholder="Add new task manually...">
+        <input type="text" class="task-from-input" placeholder="From (optional)...">
+      </div>
+      <div class="task-controls-row">
       <select class="task-priority-select">
         <option value="low">Low</option>
         <option value="medium" selected>Medium</option>
@@ -5429,6 +5893,7 @@ function updateTaskModalWithData(modal, data) {
           <line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
       </button>
+      </div>
     </div>
     
     <div class="task-actions">
@@ -5472,9 +5937,11 @@ function addTaskModalEventListeners(modal) {
   }
   
   // Add manual task
+  const fromInput = modal.querySelector('.task-from-input');
   if (addBtn && input && prioritySelect) {
     addBtn.addEventListener('click', async () => {
       const text = input.value.trim();
+      const fromValue = fromInput ? fromInput.value.trim() : '';
       if (text) {
         // Disable button during webhook call
         addBtn.disabled = true;
@@ -5486,8 +5953,9 @@ function addTaskModalEventListeners(modal) {
         `;
         
         try {
-          await addManualTask(text, prioritySelect.value);
+          await addManualTask(text, prioritySelect.value, fromValue);
           input.value = '';
+          if (fromInput) fromInput.value = '';
           // Just close the modal - the task is already saved locally and will show on next open
           closeTaskModal(modal);
         } catch (error) {
@@ -5622,6 +6090,306 @@ function closeTaskModal(modal) {
   }
 }
 
+// === Feedback Modal ===
+
+function showFeedbackModal() {
+  // Remove existing modal if any
+  const existingModal = document.querySelector('.saai-feedback-modal');
+  if (existingModal) existingModal.remove();
+  
+  const modal = document.createElement('div');
+  modal.className = 'saai-modal saai-feedback-modal';
+  modal.innerHTML = `
+    <div class="saai-modal-content saai-feedback-modal-content">
+      <div class="saai-modal-header">
+        <h2 class="saai-modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          Send Feedback
+        </h2>
+        <button class="saai-modal-close-btn">×</button>
+      </div>
+      <div class="saai-feedback-modal-body">
+        <!-- Feedback Form -->
+        <form id="feedback-form" class="feedback-form">
+          <div class="feedback-form-row">
+            <div class="feedback-form-group">
+              <label for="feedback-name">Your Name *</label>
+              <input type="text" id="feedback-name" class="feedback-input" placeholder="John Doe" required />
+            </div>
+            
+            <div class="feedback-form-group">
+              <label for="feedback-designation">Designation *</label>
+              <input type="text" id="feedback-designation" class="feedback-input" placeholder="Product Manager" required />
+            </div>
+          </div>
+          
+          <div class="feedback-form-group">
+            <label for="feedback-email">Email Address *</label>
+            <input type="email" id="feedback-email" class="feedback-input" placeholder="john@example.com" required />
+          </div>
+          
+          <div class="feedback-form-group">
+            <label for="feedback-experience">How was your experience? *</label>
+            <textarea id="feedback-experience" class="feedback-textarea" rows="4" placeholder="Tell us about your experience with Sa.AI..." required></textarea>
+          </div>
+          
+          <div class="feedback-form-group">
+            <label for="feedback-improvement">What would make us improve? *</label>
+            <textarea id="feedback-improvement" class="feedback-textarea" rows="4" placeholder="What features or improvements would you like to see?" required></textarea>
+          </div>
+          
+          <div class="feedback-form-group">
+            <label for="feedback-picture">Your Picture (Optional)</label>
+            <input type="file" id="feedback-picture" class="feedback-file-input" accept="image/*" />
+            <small class="feedback-hint">JPG, PNG, GIF (Max 5MB)</small>
+          </div>
+          
+          <div class="feedback-form-actions">
+            <button type="submit" class="feedback-submit-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Submit Feedback
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  addFeedbackModalListeners(modal, 'feedback');
+}
+
+function showSupportModal() {
+  // Remove existing modal if any
+  const existingModal = document.querySelector('.saai-feedback-modal');
+  if (existingModal) existingModal.remove();
+  
+  const modal = document.createElement('div');
+  modal.className = 'saai-modal saai-feedback-modal';
+  modal.innerHTML = `
+    <div class="saai-modal-content saai-feedback-modal-content">
+      <div class="saai-modal-header">
+        <h2 class="saai-modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Report an Issue
+        </h2>
+        <button class="saai-modal-close-btn">×</button>
+      </div>
+      <div class="saai-feedback-modal-body">
+        <!-- Issue Report Form -->
+        <form id="issue-form" class="feedback-form">
+          <div class="feedback-form-row">
+            <div class="feedback-form-group">
+              <label for="issue-name">Your Name *</label>
+              <input type="text" id="issue-name" class="feedback-input" placeholder="John Doe" required />
+            </div>
+            
+            <div class="feedback-form-group">
+              <label for="issue-email">Email Address *</label>
+              <input type="email" id="issue-email" class="feedback-input" placeholder="john@example.com" required />
+            </div>
+          </div>
+          
+          <div class="feedback-form-group">
+            <label for="issue-description">Tell us about the issue *</label>
+            <textarea id="issue-description" class="feedback-textarea" rows="6" placeholder="Please describe the issue you're experiencing in detail..." required></textarea>
+          </div>
+          
+          <div class="feedback-form-group">
+            <label for="issue-screenshot">Supporting Screenshots (Optional)</label>
+            <input type="file" id="issue-screenshot" class="feedback-file-input" accept="image/*" multiple />
+            <small class="feedback-hint">Upload multiple screenshots (Max 5MB each)</small>
+          </div>
+          
+          <div class="feedback-form-actions">
+            <button type="submit" class="feedback-submit-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Submit Issue
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  addFeedbackModalListeners(modal, 'issue');
+}
+
+function addFeedbackModalListeners(modal, formType) {
+  const closeBtn = modal.querySelector('.saai-modal-close-btn');
+  const feedbackForm = modal.querySelector('#feedback-form');
+  const issueForm = modal.querySelector('#issue-form');
+  
+  // Close button
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => closeFeedbackModal(modal));
+  }
+  
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeFeedbackModal(modal);
+    }
+  });
+  
+  // Form submission for feedback
+  if (feedbackForm && formType === 'feedback') {
+    feedbackForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await submitFeedback(modal, feedbackForm, 'feedback');
+    });
+  }
+  
+  // Form submission for issue
+  if (issueForm && formType === 'issue') {
+    issueForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await submitFeedback(modal, issueForm, 'issue');
+    });
+  }
+}
+
+async function submitFeedback(modal, form, formType) {
+  const submitBtn = form.querySelector('.feedback-submit-btn');
+  const originalBtnText = submitBtn.innerHTML;
+  
+  try {
+    // Get user ID
+    const userId = await getUserId();
+    
+    let payload = {
+      userId: userId,
+      formType: formType,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent
+    };
+    
+    // Get form values based on form type
+    if (formType === 'feedback') {
+      const experience = document.getElementById('feedback-experience').value;
+      const improvement = document.getElementById('feedback-improvement').value;
+      const name = document.getElementById('feedback-name').value;
+      const designation = document.getElementById('feedback-designation').value;
+      const email = document.getElementById('feedback-email').value;
+      const pictureInput = document.getElementById('feedback-picture');
+      
+      payload = {
+        ...payload,
+        experience: experience,
+        improvement: improvement,
+        name: name,
+        designation: designation,
+        email: email
+      };
+      
+      // Handle picture upload
+      if (pictureInput.files && pictureInput.files[0]) {
+        const file = pictureInput.files[0];
+        payload.pictureName = file.name;
+        payload.pictureSize = file.size;
+        // Note: Actual file upload would need additional handling
+        // For now, we'll just send metadata
+      }
+      
+    } else if (formType === 'issue') {
+      const description = document.getElementById('issue-description').value;
+      const name = document.getElementById('issue-name').value;
+      const email = document.getElementById('issue-email').value;
+      const screenshotInput = document.getElementById('issue-screenshot');
+      
+      payload = {
+        ...payload,
+        description: description,
+        name: name,
+        email: email
+      };
+      
+      // Handle screenshot uploads
+      if (screenshotInput.files && screenshotInput.files.length > 0) {
+        const fileNames = Array.from(screenshotInput.files).map(f => f.name);
+        payload.screenshots = fileNames.join(', ');
+        payload.screenshotCount = screenshotInput.files.length;
+      }
+    }
+    
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+        <circle cx="12" cy="12" r="10"/>
+      </svg>
+      Sending...
+    `;
+    
+    // Send to n8n webhook via background script
+    const response = await chrome.runtime.sendMessage({
+      action: 'sendToN8N',
+      data: {
+        endpoint: 'feedback',
+        payload: payload
+      }
+    });
+    
+    if (response && response.success) {
+      // Show success message
+      submitBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Sent!
+      `;
+      submitBtn.style.background = '#16a34a';
+      
+      // Close modal after 1.5 seconds
+      setTimeout(() => {
+        closeFeedbackModal(modal);
+      }, 1500);
+    } else {
+      throw new Error(response?.error || 'Failed to send feedback');
+    }
+    
+  } catch (error) {
+    console.error('[Feedback] Error:', error);
+    
+    // Show error
+    submitBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      Failed - Try Again
+    `;
+    submitBtn.style.background = '#dc2626';
+    
+    // Reset after 2 seconds
+    setTimeout(() => {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+      submitBtn.style.background = '';
+    }, 2000);
+  }
+}
+
+function closeFeedbackModal(modal) {
+  if (modal && modal.parentNode) {
+    modal.remove();
+  }
+}
+
 function getTasks() {
   const tasks = localStorage.getItem('saai-tasks');
   return tasks ? JSON.parse(tasks) : [];
@@ -5661,13 +6429,26 @@ function toggleTaskComplete(taskId) {
 }
 
 // Add manual task function
-async function addManualTask(taskText, priority = 'medium') {
+async function addManualTask(taskText, priority = 'medium', fromValue = '') {
   try {
     // Get user ID from storage
     const { userId } = await chrome.storage.local.get(['userId']);
     
     if (!userId) {
       throw new Error('User ID not found. Please connect your Gmail account first.');
+    }
+    
+    // Build webhook payload
+    const payload = {
+      userId: userId,
+      context: 'ManualTaskAddition',
+      taskName: taskText,
+      priority: priority
+    };
+    
+    // Add 'from' field if provided
+    if (fromValue) {
+      payload.from = fromValue;
     }
     
     // Send manual task to webhook for Supabase storage
@@ -5677,12 +6458,7 @@ async function addManualTask(taskText, priority = 'medium') {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${await ensureValidJWTToken()}`
       },
-      body: JSON.stringify({
-        userId: userId,
-        context: 'ManualTaskAddition',
-        taskName: taskText,
-        priority: priority
-      })
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
@@ -5699,7 +6475,8 @@ async function addManualTask(taskText, priority = 'medium') {
       priority: priority,
       completed: false,
       createdAt: new Date().toISOString(),
-      isManual: true // Flag to identify manually added tasks
+      isManual: true, // Flag to identify manually added tasks
+      from: fromValue || undefined // Store 'from' if provided
     };
     tasks.push(newTask);
     saveTasks(tasks);
@@ -6183,35 +6960,33 @@ window.showSupportModal = function() {
 // Confirm clear data
 window.confirmClearData = function() {
   const modal = document.createElement('div');
-  modal.className = 'task-modal-overlay';
+  modal.className = 'saai-modal saai-confirmation-modal';
   modal.innerHTML = `
-    <div class="task-modal-content">
-      <div class="task-modal-header">
-        <h3 class="task-modal-title">
-          <span>⚠️</span>
-          Clear All Data
-        </h3>
-        <button class="task-modal-close-btn" onclick="this.closest('.task-modal-overlay').remove()">×</button>
+    <div class="saai-modal-content saai-confirmation-content">
+      <div class="saai-modal-header">
+        <h2 class="saai-modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Warning!
+        </h2>
+        <button class="saai-modal-close-btn" onclick="this.closest('.saai-confirmation-modal').remove()">×</button>
       </div>
-      <div class="task-modal-body">
-        <div style="text-align: center; padding: 20px;">
-          <div style="font-size: 48px; margin-bottom: 16px;">🗑️</div>
-          <div style="font-size: 16px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 500;">
-            Are you sure you want to clear all data?
-          </div>
-          <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px; line-height: 1.5;">
-            This will permanently delete:
-            <br>• All conversation history
-            <br>• Saved preferences and settings  
-            <br>• Cached email summaries
-            <br>• Authentication tokens
-            <br><br>
-            <strong>This action cannot be undone.</strong>
-          </div>
+      <div class="saai-modal-body saai-confirmation-body">
+        <div class="confirmation-icon">⚠️</div>
+        <div class="confirmation-message">
+          <p class="confirmation-title">Sa.ai will lose your data</p>
+          <p class="confirmation-subtitle">This action cannot be undone. All your data will be permanently deleted.</p>
         </div>
-        <div style="display: flex; gap: 12px;">
-          <button style="flex: 1; padding: 12px; background: var(--saai-accent); border: 1px solid var(--saai-border); border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="this.closest('.task-modal-overlay').remove()">Cancel</button>
-          <button style="flex: 1; padding: 12px; background: #dc2626; color: white; border: none; border-radius: var(--saai-border-radius); cursor: pointer; font-family: inherit;" onclick="clearAllData()">Clear Data</button>
+        <div class="confirmation-actions">
+          <button class="confirmation-btn confirmation-btn-no" onclick="this.closest('.saai-confirmation-modal').remove()">
+            No
+          </button>
+          <button class="confirmation-btn confirmation-btn-yes" onclick="clearAllData()">
+            Yes, Clear Data
+          </button>
         </div>
       </div>
     </div>
@@ -6309,36 +7084,160 @@ window.submitSupportRequest = function() {
 
 // Clear all data
 window.clearAllData = function() {
+  // Close the confirmation modal
+  const confirmModal = document.querySelector('.saai-confirmation-modal');
+  if (confirmModal) {
+    confirmModal.remove();
+  }
+  
   // Clear all storage
   chrome.storage.local.clear(() => {
     chrome.storage.sync.clear(() => {
-      // Show success message
-      const modal = document.querySelector('.task-modal-overlay');
+      // Show final success message with email confirmation
+      const modal = document.createElement('div');
+      modal.className = 'saai-modal saai-confirmation-modal';
       modal.innerHTML = `
-        <div class="task-modal-content">
-          <div class="task-modal-header">
-            <h3 class="task-modal-title">
-              <span>✅</span>
-              Data Cleared
-            </h3>
+        <div class="saai-modal-content saai-confirmation-content">
+          <div class="saai-modal-header">
+            <h2 class="saai-modal-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Data Cleared Successfully
+            </h2>
           </div>
-          <div class="task-modal-body">
-            <div style="text-align: center; padding: 20px;">
-              <div style="font-size: 48px; margin-bottom: 16px;">🧹</div>
-              <div style="font-size: 16px; color: var(--saai-text-primary); margin-bottom: 16px; font-weight: 500;">
-                All data has been cleared successfully!
-              </div>
-              <div style="font-size: 14px; color: var(--saai-text-secondary); margin-bottom: 24px;">
-                The page will reload to reset the extension.
-              </div>
+          <div class="saai-modal-body saai-confirmation-body">
+            <div class="confirmation-icon success">✓</div>
+            <div class="confirmation-message">
+              <p class="confirmation-title">All data has been cleared</p>
+              <p class="confirmation-subtitle">
+                <strong>devang@saai.dev</strong> will send a confirmation email to you
+              </p>
             </div>
-            <button class="task-modal-ok-btn" onclick="window.location.reload()">Reload Page</button>
+            <div class="confirmation-actions">
+              <button class="confirmation-btn confirmation-btn-primary" onclick="window.location.reload()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                Reload Page
+              </button>
+            </div>
           </div>
         </div>
       `;
+      
+      document.body.appendChild(modal);
     });
   });
 };
+
+// Function to add email to tasks via webhook
+async function addEmailToTasks(emailTaskData) {
+  try {
+    console.log('[SaAI] addEmailToTasks called with:', emailTaskData);
+    debugLog('Adding email to tasks:', emailTaskData);
+    
+    // Get userId and JWT token
+    const userId = await getUserId();
+    const jwtToken = await getJWTToken();
+    
+    console.log('[SaAI] User credentials:', { userId, hasToken: !!jwtToken });
+    
+    if (!userId || !jwtToken) {
+      throw new Error('User not authenticated');
+    }
+    
+    // Build request body
+    const requestBody = {
+      userId: userId,
+      from: emailTaskData.from,
+      context: "ManualTaskAddition",
+      taskName: emailTaskData.taskName,
+      priority: emailTaskData.priority
+    };
+    
+    console.log('[SaAI] Request body:', requestBody);
+    debugLog('Sending task to webhook:', requestBody);
+    
+    // Send to Task Management webhook
+    const response = await chrome.runtime.sendMessage({
+      action: 'sendToN8N',
+      data: {
+        endpoint: 'task',
+        payload: requestBody
+      }
+    });
+    
+    console.log('[SaAI] Task webhook response:', response);
+    debugLog('Task webhook response:', response);
+    
+    if (response && response.success) {
+      console.log('[SaAI] ✅ Task added successfully!');
+      debugLog('✅ Task added successfully!');
+      // Success - caller will handle UI update
+      return true;
+    } else {
+      throw new Error(response?.error || 'Failed to add task');
+    }
+    
+  } catch (error) {
+    console.error('[SaAI] Error adding email to tasks:', error);
+    debugError('Error adding email to tasks:', error);
+    alert('❌ Failed to add task: ' + error.message);
+    throw error; // Re-throw so caller can handle it
+  }
+}
+
+// Listen for messages from popup window
+window.addEventListener('message', (event) => {
+  console.log('[SaAI Main] Message received:', event.data);
+  
+  if (event.data && event.data.action === 'openTaskModal') {
+    showTaskModal();
+  } else if (event.data && event.data.action === 'addEmailToTask') {
+    console.log('[SaAI Main] addEmailToTask action received');
+    const isFromPopup = event.data.fromPopup === true;
+    console.log('[SaAI Main] Is from popup:', isFromPopup);
+    
+    // Parse email data from popup and add to tasks
+    try {
+      const emailData = JSON.parse(event.data.data);
+      console.log('[SaAI Main] Parsed email data:', emailData);
+      
+      // Determine priority level
+      let priorityLevel = 'medium';
+      if (emailData.priorityKey === 'high_priority_emails') priorityLevel = 'high';
+      else if (emailData.priorityKey === 'medium_priority') priorityLevel = 'medium';
+      else if (emailData.priorityKey === 'low_priority') priorityLevel = 'low';
+      else if (emailData.priorityKey === 'missed_or_ignored_emails') priorityLevel = 'low'; // Missed = low priority
+      else if (emailData.priorityKey === 'already_replied_closed_threads') priorityLevel = 'low'; // Already replied = low priority
+      
+      console.log('[SaAI Main] Priority determined:', priorityLevel);
+      
+      // Add task and notify popup of result
+      addEmailToTasks({
+        from: emailData.sender,
+        context: emailData.subject,
+        taskName: emailData.nextAction,
+        priority: priorityLevel
+      }).then((success) => {
+        console.log('[SaAI Main] Task added successfully, sending success message');
+        // Send success message back (popup listener will catch it)
+        window.postMessage({ action: 'taskAddedSuccess', forPopup: true }, '*');
+      }).catch((error) => {
+        console.error('[SaAI Main] Task add failed, sending error message:', error);
+        // Send error message back (popup listener will catch it)
+        window.postMessage({ action: 'taskAddedError', forPopup: true, error: error.message }, '*');
+      });
+    } catch (err) {
+      debugError('Error parsing email data from popup:', err);
+      console.error('[SaAI Main] Parse error:', err);
+      window.postMessage({ action: 'taskAddedError', forPopup: true, error: 'Failed to parse email data' }, '*');
+    }
+  }
+});
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
@@ -6365,3 +7264,4 @@ new MutationObserver(() => {
 }).observe(document, { subtree: true, childList: true });
 
 } // Close the if block for duplicate script prevention
+
