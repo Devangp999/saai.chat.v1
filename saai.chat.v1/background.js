@@ -60,27 +60,31 @@ const FEATURES = {
     heartbeatEnabled: false
 };
 
-chrome.runtime.onInstalled.addListener(() => {
-    debugLog('Sa.AI Inbox Assistant installed');
+chrome.runtime.onInstalled.addListener((details) => {
+    debugLog('Sa.AI Inbox Assistant installed/updated', details.reason);
     
-    // Clear any old data only if not updating
-    chrome.runtime.onStartup.addListener(() => {
-        debugLog('Extension startup - checking existing session');
-        
-        // Check if user already has a valid session
-        chrome.storage.local.get(['isConnected', 'jwtToken', 'userId'], (result) => {
-            if (result.isConnected && result.jwtToken && result.userId) {
-                debugLog('Existing session found');
-                // No automatic refresh - will refresh only on 401/403 errors
-            } else {
-                debugLog('No existing session found');
-                // Don't clear storage on update - preserve user data
-            }
+    // Only clear storage on fresh install, NOT on updates
+    if (details.reason === 'install') {
+        chrome.storage.local.clear(() => {
+            debugLog('Storage cleared on fresh installation');
         });
-    });
+    } else if (details.reason === 'update') {
+        debugLog('Extension updated - preserving user data');
+        // Do NOT clear storage on updates - keep user logged in
+    }
+});
+
+// Extension startup handler - keep session alive
+chrome.runtime.onStartup.addListener(() => {
+    debugLog('Extension startup - checking existing session');
     
-    chrome.storage.local.clear(() => {
-        debugLog('Storage cleared on fresh installation');
+    // Check if user already has a valid session
+    chrome.storage.local.get(['isConnected', 'jwtToken', 'userId'], (result) => {
+        if (result.isConnected && result.jwtToken && result.userId) {
+            debugLog('Existing session found - user remains logged in');
+        } else {
+            debugLog('No existing session found');
+        }
     });
 });
 

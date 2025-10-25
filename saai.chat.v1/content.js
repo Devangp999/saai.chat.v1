@@ -3469,19 +3469,41 @@ async function handleSendMessage() {
         debugLog('Using fallback response - n8n webhook unavailable');
         
         // Create a special message for fallback responses
+        // SECURITY: Use textContent to prevent XSS from untrusted backend response
         const fallbackDiv = document.createElement('div');
         fallbackDiv.className = 'message bot-message';
         
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
-        messageContent.innerHTML = `
-          <div style="margin-bottom: 8px;">${responseData.message}</div>
-          <div style="font-size: 12px; opacity: 0.8; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 8px; margin-top: 8px;">
-            <strong>Webhook Status:</strong> ${responseData.webhookStatus}<br>
-            <strong>Suggestion:</strong> ${responseData.suggestion || 'Check n8n configuration'}
-          </div>
-        `;
         
+        // Safely create elements without innerHTML to prevent XSS
+        const messageDiv = document.createElement('div');
+        messageDiv.style.marginBottom = '8px';
+        messageDiv.textContent = responseData.message || 'No response message';
+        
+        const detailsDiv = document.createElement('div');
+        detailsDiv.style.fontSize = '12px';
+        detailsDiv.style.opacity = '0.8';
+        detailsDiv.style.borderTop = '1px solid rgba(0,0,0,0.1)';
+        detailsDiv.style.paddingTop = '8px';
+        detailsDiv.style.marginTop = '8px';
+        
+        const statusLabel = document.createElement('strong');
+        statusLabel.textContent = 'Webhook Status: ';
+        const statusText = document.createTextNode(responseData.webhookStatus || 'Unknown');
+        
+        const suggestionLabel = document.createElement('strong');
+        suggestionLabel.textContent = 'Suggestion: ';
+        const suggestionText = document.createTextNode(responseData.suggestion || 'Check n8n configuration');
+        
+        detailsDiv.appendChild(statusLabel);
+        detailsDiv.appendChild(statusText);
+        detailsDiv.appendChild(document.createElement('br'));
+        detailsDiv.appendChild(suggestionLabel);
+        detailsDiv.appendChild(suggestionText);
+        
+        messageContent.appendChild(messageDiv);
+        messageContent.appendChild(detailsDiv);
         fallbackDiv.appendChild(messageContent);
         chatArea.appendChild(fallbackDiv);
         chatArea.scrollTop = chatArea.scrollHeight;
@@ -7111,7 +7133,8 @@ window.clearAllData = function() {
             <div class="confirmation-message">
               <p class="confirmation-title">All data has been cleared</p>
               <p class="confirmation-subtitle">
-                <strong>devang@saai.dev</strong> will send a confirmation email to you
+                All stored information has been permanently deleted from your browser.
+                You will need to reconnect your account to use Sa.AI again.
               </p>
             </div>
             <div class="confirmation-actions">
