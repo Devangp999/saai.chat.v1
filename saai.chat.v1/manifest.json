@@ -1,26 +1,34 @@
 {
   "manifest_version": 3,
   "name": "Sa.AI for Gmail",
-  "version": "2.1",
-  "description": "AI-powered Inbox assistant with n8n integration for inbox summarization, thread summarization, voice mode and task management",
+  "version": "2.1.0",
+  "description": "AI-powered Inbox assistant for Gmail. Summarize emails, extract tasks, chat with AI about your inbox, and manage your email workflow efficiently.",
+  "author": "Sa.AI Team",
+  "homepage_url": "https://saai.dev",
+  
   "permissions": [
-    "activeTab",
-    "storage",
-    "scripting",
-    "tabs",
-    "identity",
-    "alarms"
+    "storage"
+  ],
+
+  "optional_permissions": [
+    "identity"
   ],
 
   "host_permissions": [
-    "https://mail.google.com/*",
+    "https://mail.google.com/*"
+  ],
+  
+  "optional_host_permissions": [
     "https://www.googleapis.com/*",
     "https://connector.saai.dev/*",
     "https://accounts.google.com/*"
   ],
+  
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
+  
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
@@ -29,24 +37,50 @@
       "run_at": "document_idle"
     }
   ],
+  
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Sa.AI for Gmail"
+    "default_title": "Sa.AI - AI Inbox Assistant",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
+  
   "icons": {
-    "16": "icons/icon 16.jpg",
-    "48": "icons/icon 48.png",
-    "128": "icons/icon 128.png"
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
+  
   "minimum_chrome_version": "88",
   "short_name": "Sa.AI",
+  
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
+  
   "web_accessible_resources": [
     {
-      "resources": ["icons/*", "debug.html"],
-      "matches": ["https://mail.google.com/*", "<all_urls>"]
+      "resources": ["icons/*"],
+      "matches": ["https://mail.google.com/*"]
     }
-  ]
+  ],
+  
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq",
+  
+  "oauth2": {
+    "client_id": "YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
+  
+  "externally_connectable": {
+    "matches": [
+      "https://connector.saai.dev/*"
+    ]
+  }
 }
