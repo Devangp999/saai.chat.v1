@@ -4,7 +4,7 @@
 **Sa.AI for Gmail**
 
 ## Short Description (132 characters max)
-AI-powered inbox assistant. Summarize emails, extract tasks, chat with AI about your inbox. Boost productivity effortlessly.
+AI inbox assistant with context memory. Stores emails 30 days for smart insights. Auto-deletes. Boost productivity effortlessly.
 
 ## Detailed Description
 
@@ -32,17 +32,21 @@ Get insights about your emails instantly - priority levels, sentiment analysis, 
 
 ### ✨ Why Choose Sa.AI?
 
-- **Privacy-Focused**: Your emails are processed securely and never stored permanently
+- **Transparent**: 30-day data retention clearly disclosed; automatic deletion
 - **Non-Intrusive**: Clean sidebar design that integrates seamlessly with Gmail
 - **Productivity Boost**: Save hours every week with AI-powered email management
 - **Always Learning**: Our AI continuously improves to serve you better
 
 ### 🔒 Privacy & Security
 
-- All data processing uses enterprise-grade encryption
+⚠️ **Data Storage Notice**: This extension stores email data (subject, sender, body, labels) in our secure Pinecone database for 30 days to provide context-aware AI assistance. Data is automatically deleted after 30 days.
+
+- Enterprise-grade encryption (TLS 1.3, AES-256)
 - OAuth 2.0 secure authentication
-- No permanent storage of your emails
-- Full GDPR compliance
+- **30-day data retention** for context awareness
+- Automatic deletion after 30 days
+- Manual deletion available anytime
+- Full GDPR & CCPA compliance
 - Read our comprehensive privacy policy
 
 ### 📊 Perfect For
@@ -159,23 +163,53 @@ This extension does NOT use remote code. All code is included in the extension p
 
 ## Data Usage Disclosure
 
+⚠️ **IMPORTANT**: This extension stores email data for context-aware AI assistance.
+
 ### Gmail Messages
-**Purpose**: Email analysis and summarization
-**Usage**: Read email content to provide AI-powered summaries and answer user questions
+**Purpose**: Email analysis, summarization, and context-aware AI assistance
+**Usage**: Read email content (subject, sender, body, labels) to provide intelligent responses
 **Transfer**: Sent to our secure backend (connector.saai.dev) for AI processing
-**Storage**: NOT stored permanently - processed in real-time only
+**Storage**: ⚠️ **STORED in Pinecone vector database for 30 DAYS** for context awareness, then automatically deleted
+
+**What We Store**:
+- Email subjects
+- Sender email addresses  
+- Email body content
+- Email labels/categories
+- Timestamp metadata
+
+**Why We Store It**:
+- To provide intelligent, context-aware responses
+- To remember your email history for better assistance
+- To track patterns and provide personalized insights
+
+**How Long**:
+- **30 days** from first connection
+- Includes 30 days of historical emails (prior to installation)
+- **Automatically deleted** after 30 days
+
+**Deletion**:
+- Automatic after 30 days
+- Manual deletion via Settings → Clear All Data
+- Request immediate deletion: devang@saai.dev
 
 ### User Account Info
 **Purpose**: Authentication and personalization
 **Usage**: Identify user and maintain session
-**Transfer**: Used for OAuth authentication only
-**Storage**: User ID stored locally in browser
+**Transfer**: Used for OAuth authentication
+**Storage**: 
+- User ID stored locally in browser
+- Session data on backend servers
+- Deleted on logout or data clearing
 
 ### Usage Patterns
-**Purpose**: Product improvement
-**Usage**: Understand how users interact with features
-**Transfer**: Anonymous analytics only
-**Storage**: Aggregated, non-identifiable data
+**Purpose**: Product improvement and debugging
+**Usage**: Understand feature usage and errors
+**Transfer**: Anonymized analytics to backend
+**Storage**: 
+- 90 days (anonymized)
+- Error logs: 7 days
+- Aggregated, non-identifiable data
 
 ## Certification
 
