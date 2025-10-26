@@ -19,6 +19,7 @@ Sa.AI for Gmail ("the Extension") is a Chrome extension that provides AI-powered
    - **Email Body Content** - To analyze and extract tasks/insights
    - **Email Labels/Categories** - To organize and prioritize
    - **Email Timestamps** - To provide chronological context
+   - **Email Draft Creation** - To prepare AI-generated draft replies in threads
 
 2. **User Identification**
    - Google Account email address (for authentication)
@@ -61,6 +62,7 @@ Sa.AI for Gmail ("the Extension") is a Chrome extension that provides AI-powered
    - Extract tasks and action items from emails
    - Provide voice interaction with your inbox
    - Manage email-related tasks
+   - **Generate AI-powered draft replies** in email threads
 
 3. **AI Processing**
    - Email data is sent to our secure backend (connector.saai.dev)
@@ -114,7 +116,8 @@ We MAY share data only:
 ## Third-Party Services
 
 ### Google APIs
-- Used for Gmail authentication and access
+- Used for Gmail authentication, reading, and composing
+- **Gmail Compose Scope**: Allows creation of draft replies
 - Subject to [Google's Privacy Policy](https://policies.google.com/privacy)
 - Complies with [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy)
 

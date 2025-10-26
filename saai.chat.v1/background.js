@@ -692,6 +692,7 @@ async function handleOAuthFlow() {
         const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
         const scopes = [
             'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.compose',
             'https://www.googleapis.com/auth/userinfo.email',
             'https://www.googleapis.com/auth/userinfo.profile'
         ];

@@ -21,6 +21,9 @@ Chat naturally with your inbox. Ask questions like "What are my urgent emails?" 
 **Automatic Task Extraction**
 Never miss an action item again. Sa.AI automatically identifies tasks and to-dos from your emails and helps you manage them efficiently.
 
+**AI-Powered Draft Replies** 🆕
+Smart email drafts are automatically prepared in threads before you even open them. Context-aware AI generates relevant, professional responses ready for your review.
+
 **Voice Interaction**
 Use voice commands to interact with your inbox hands-free. Perfect for busy professionals on the go.
 
@@ -52,9 +55,10 @@ Get insights about your emails instantly - priority levels, sentiment analysis, 
 ### 📊 Perfect For
 
 - Busy professionals managing high email volumes
-- Teams needing quick email insights
+- Teams needing quick email insights and faster responses
 - Anyone looking to improve email productivity
 - Users who want AI assistance without complexity
+- People who spend too much time writing email replies
 
 ### 🎯 How It Works
 
@@ -146,8 +150,11 @@ Feature showcase with:
 ### host_permissions: mail.google.com
 **Justification**: Essential for the extension to function - injects the AI assistant sidebar directly into Gmail interface.
 
-### host_permissions: googleapis.com (optional)
-**Justification**: Required for Gmail API access to read email metadata and content when user requests summaries or analysis.
+### host_permissions: googleapis.com
+**Justification**: Required for Gmail API access to:
+- Read email metadata and content for summaries and analysis
+- Create draft replies using gmail.compose scope
+- Provide context-aware AI assistance
 
 ### host_permissions: connector.saai.dev (optional)
 **Justification**: Our secure backend service that processes AI requests. Email data is sent here for analysis and immediately discarded after processing.
@@ -166,8 +173,10 @@ This extension does NOT use remote code. All code is included in the extension p
 ⚠️ **IMPORTANT**: This extension stores email data for context-aware AI assistance.
 
 ### Gmail Messages
-**Purpose**: Email analysis, summarization, and context-aware AI assistance
-**Usage**: Read email content (subject, sender, body, labels) to provide intelligent responses
+**Purpose**: Email analysis, summarization, draft creation, and context-aware AI assistance
+**Usage**: 
+- Read email content (subject, sender, body, labels) to provide intelligent responses
+- **Create draft replies** in email threads automatically
 **Transfer**: Sent to our secure backend (connector.saai.dev) for AI processing
 **Storage**: ⚠️ **STORED in Pinecone vector database for 30 DAYS** for context awareness, then automatically deleted
 

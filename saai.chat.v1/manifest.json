@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sa.AI for Gmail",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "AI-powered Inbox assistant for Gmail. Summarize emails, extract tasks, chat with AI about your inbox, and manage your email workflow efficiently.",
   "author": "Sa.AI Team",
   "homepage_url": "https://saai.dev",
@@ -68,6 +68,7 @@
     "client_id": "1060248068671-qip39ofgb8b24v74gvdqf3nfhq27vldi.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.compose",
       "https://www.googleapis.com/auth/userinfo.email"
     ]
   },
