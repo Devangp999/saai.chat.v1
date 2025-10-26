@@ -703,6 +703,21 @@ function buildEmailSubjectsCard(text) {
 }
 
 // Enhanced message formatting function
+// Sanitize HTML to prevent XSS from backend responses
+function sanitizeHtml(html) {
+  // Remove script tags and event handlers
+  let sanitized = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/on\w+\s*=\s*[^\s>]*/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/<iframe/gi, '&lt;iframe')
+    .replace(/<object/gi, '&lt;object')
+    .replace(/<embed/gi, '&lt;embed');
+  
+  return sanitized;
+}
+
 function formatMessageContent(content) {
   // Convert markdown-style lists to HTML with enhanced styling
   let formatted = content;
@@ -716,10 +731,10 @@ function formatMessageContent(content) {
     }
   }
 
-  // Check if content already contains HTML tags - if so, don't format it
+  // Check if content already contains HTML tags - sanitize it before returning
   if (hasHtmlTags) {
-    debugLog('Content already contains HTML, returning as-is');
-    return formatted;
+    debugLog('Content contains HTML, sanitizing before use');
+    return sanitizeHtml(formatted);
   }
 
   // Handle numbered lists
@@ -982,7 +997,10 @@ async function exitVoiceMode(indicator, exitBtn, voiceBtn) {
     voiceSession.segments.forEach(seg => {
       const messageDiv = document.createElement('div');
       messageDiv.className = `message ${seg.role === 'user' ? 'user' : 'bot'}-message`;
-      messageDiv.innerHTML = `<div class="message-content">${seg.text}</div>`;
+      const messageContent = document.createElement('div');
+      messageContent.className = 'message-content';
+      messageContent.textContent = seg.text; // Use textContent for safety
+      messageDiv.appendChild(messageContent);
       chatArea.appendChild(messageDiv);
     });
     chatArea.scrollTop = chatArea.scrollHeight;
@@ -3714,10 +3732,10 @@ function appendMessage(sender, text, chatArea, temporary = false, isFormatted = 
   const looksLikeHtml = typeof text === 'string' && /<\w+[^>]*>/.test(text);
 
   if (isFormatted || looksLikeHtml) {
-    // For formatted HTML content
-    debugLog('Setting innerHTML for formatted content:', text);
+    // For formatted HTML content - sanitize before injecting
+    debugLog('Setting innerHTML for formatted content (sanitized):', text);
     try {
-      messageContent.innerHTML = text;
+      messageContent.innerHTML = sanitizeHtml(text);
       debugLog('innerHTML set successfully');
     } catch (error) {
       debugError('Error setting innerHTML:', error);
@@ -3994,6 +4012,7 @@ function appendTableMessage(sender, emailData, chatArea) {
       }
       
       const header = document.createElement('h4');
+      // Safe: priority.icon and priority.label are from our own code, not backend
       header.innerHTML = `${priority.icon} ${priority.label} <span class="email-count">(${emails.length})</span>`;
       section.appendChild(header);
       
@@ -7133,13 +7152,13 @@ window.clearAllData = async function() {
       // Continue with deletion even if notification fails
     }
     
-    // Clear all storage
-    chrome.storage.local.clear(() => {
-      chrome.storage.sync.clear(() => {
+  // Clear all storage
+  chrome.storage.local.clear(() => {
+    chrome.storage.sync.clear(() => {
         // Show final success message
         const modal = document.createElement('div');
         modal.className = 'saai-modal saai-confirmation-modal';
-        modal.innerHTML = `
+      modal.innerHTML = `
           <div class="saai-modal-content saai-confirmation-content">
             <div class="saai-modal-header">
               <h2 class="saai-modal-title">
@@ -7148,7 +7167,7 @@ window.clearAllData = async function() {
                 </svg>
                 Data Cleared Successfully
               </h2>
-            </div>
+          </div>
             <div class="saai-modal-body saai-confirmation-body">
               <div class="confirmation-icon success">✓</div>
               <div class="confirmation-message">
@@ -7167,13 +7186,13 @@ window.clearAllData = async function() {
                   Reload Page
                 </button>
               </div>
-            </div>
           </div>
-        `;
+        </div>
+      `;
         
         document.body.appendChild(modal);
-      });
     });
+  });
   } catch (error) {
     debugError('Error in clearAllData:', error);
     alert('An error occurred while clearing data. Please try again.');

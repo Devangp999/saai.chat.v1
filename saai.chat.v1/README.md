@@ -1,7 +1,7 @@
 # Sa.AI for Gmail
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-blue)](https://chrome.google.com/webstore)
-[![Version](https://img.shields.io/badge/version-2.1.0-green)]()
+[![Version](https://img.shields.io/badge/version-2.2.0-green)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
 **Your AI-Powered Inbox Assistant**
@@ -146,7 +146,7 @@ Sa.AI takes your privacy seriously:
 
 ## 🔄 Updates & Changelog
 
-### Version 2.1.0 (Current)
+### Version 2.2.0 (Current)
 - ✅ Elegant toast notification system
 - ✅ Enhanced feedback and issue reporting
 - ✅ Improved confirmation modals
