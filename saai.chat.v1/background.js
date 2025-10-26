@@ -688,7 +688,7 @@ async function handleOAuthFlow() {
         
         // Step 2: Build Google OAuth URL with n8n's PKCE parameters
         // Use client ID from manifest.json to ensure consistency
-        const clientId = '1060248068671-qip39ofgb8b24v74gvdqf3nfhq27vldi.apps.googleusercontent.com';
+        const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
         const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
         const scopes = [
             'https://www.googleapis.com/auth/gmail.readonly',
