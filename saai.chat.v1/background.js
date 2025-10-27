@@ -484,6 +484,7 @@ async function handleN8NRequest(data) {
             });
             
             console.log('[Background] Feedback response status:', response.status);
+            console.log('[Background] Feedback response URL:', response.url);
             
             if (response.ok) {
                 const result = await response.json();
@@ -491,8 +492,13 @@ async function handleN8NRequest(data) {
                 return result;
             } else {
                 const errorText = await response.text();
-                console.error('[Background] Feedback error:', errorText);
-                throw new Error(`Feedback submission failed: ${response.status}`);
+                console.error('[Background] Feedback error response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    body: errorText
+                });
+                throw new Error(`Feedback submission failed: ${response.status} - ${errorText || response.statusText}`);
             }
         } catch (error) {
             console.error('[Background] Feedback request failed:', error);
