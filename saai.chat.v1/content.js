@@ -2276,7 +2276,7 @@ function createChatInterfaceHTML() {
     <div id="${CHAT_AREA_ID}" class="chat-area">
       <div class="chat-welcome">
         <div class="chat-welcome-icon">
-            <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 48px; width: auto;" class="saai-logo-img-small"/>
+            <img src="${chrome.runtime.getURL('icons/icon-128.png')}" alt="Sa.AI Logo" style="height: 48px; width: auto;" class="saai-logo-img-small"/>
         </div>
         <h3 class="chat-welcome-title">Hi! I'm your Inbox assistant</h3>
         <p class="chat-welcome-subtitle">How can I help you today?</p>
@@ -2331,7 +2331,7 @@ function createConnectPromptHTML() {
     </div>
     <div class="saai-connect-content">
       <div class="saai-connect-icon">
-          <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 32px; width: auto;" class="saai-logo-img-small"/>
+          <img src="${chrome.runtime.getURL('icons/icon-128.png')}" alt="Sa.AI Logo" style="height: 32px; width: auto;" class="saai-logo-img-small"/>
       </div>
       
       <h2 class="saai-connect-heading">Welcome to Sa.AI</h2>
@@ -2418,7 +2418,7 @@ function createWelcomePageHTML() {
         <div class="card-content">
           <div class="saai-logo-container">
             <div class="saai-logo-main">
-              <img src="${chrome.runtime.getURL('icons/icon 128.png')}" alt="Sa.AI Logo" style="height: 56px; width: auto;" class="saai-logo-img"/>
+              <img src="${chrome.runtime.getURL('icons/icon-128.png')}" alt="Sa.AI Logo" style="height: 56px; width: auto;" class="saai-logo-img"/>
             </div>
             <div class="confetti-animation"></div>
           </div>
@@ -2552,11 +2552,11 @@ function createWelcomePageHTML() {
           </div>
           <h2>Your privacy, non-negotiable</h2>
           <div class="privacy-points">
-            <p>• We do not download, share, or peek at your emails.</p>
             <p>• All processing happens securely with your OAuth token.</p>
-            <p>• No email data is stored on our servers.</p>
-            <p>• Your conversations are processed in real-time only.</p>
+            <p>• Email metadata stored for 30 days for context awareness.</p>
+            <p>• Data automatically deleted after retention period.</p>
             <p>• Full GDPR compliance and data protection.</p>
+            <p>• You can request data deletion anytime.</p>
             <p><strong>Your data. Your control. Always.</strong></p>
           </div>
         </div>
@@ -6372,6 +6372,8 @@ async function submitFeedback(modal, form, formType) {
     `;
     
     // Send to n8n webhook via background script
+    console.log('[Feedback] Sending to background script:', { endpoint: 'feedback', payload });
+    
     const response = await chrome.runtime.sendMessage({
       action: 'sendToN8N',
       data: {
@@ -6379,6 +6381,8 @@ async function submitFeedback(modal, form, formType) {
         payload: payload
       }
     });
+    
+    console.log('[Feedback] Response from background:', response);
     
     if (response && response.success) {
       // Show success message

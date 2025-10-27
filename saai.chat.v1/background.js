@@ -65,7 +65,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     
     // Only clear storage on fresh install, not on updates
     if (details.reason === 'install') {
-        chrome.storage.local.clear(() => {
+    chrome.storage.local.clear(() => {
             debugLog('Storage cleared on fresh installation');
         });
     } else if (details.reason === 'update') {
@@ -441,13 +441,7 @@ async function handleN8NRequest(data) {
         return await handleOAuthFlow();
     }
     
-    // Get and validate JWT token for authenticated requests (auto-refresh if needed)
-    const jwtToken = await ensureValidJWTToken();
-    if (!jwtToken) {
-        throw new Error('No JWT token found. Please authenticate first.');
-    }
-    
-    // For other endpoints, call n8n directly with JWT token
+    // Determine URL first
     let url;
     switch (endpoint) {
         case 'chat':
@@ -468,13 +462,51 @@ async function handleN8NRequest(data) {
             url = 'https://connector.saai.dev/webhook/Task-Management';
             break;
         case 'feedback':
-            url = 'https://connector.saai.dev/webhook/Feedback';
+            url = 'https://connector.saai.dev/webhook-test/Feedback_error';
             break;
         default:
             throw new Error('Invalid endpoint');
     }
     
-    console.log('[Background] Sending request to n8n:', { url, payload });
+    console.log('[Background] Sending request to n8n:', { url, payload, endpoint });
+    
+    // For feedback, no authentication required - send directly
+    if (endpoint === 'feedback') {
+        try {
+            const response = await safeRequest(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                _allowErrorResponse: true
+            });
+            
+            console.log('[Background] Feedback response status:', response.status);
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('[Background] Feedback sent successfully:', result);
+                return result;
+            } else {
+                const errorText = await response.text();
+                console.error('[Background] Feedback error:', errorText);
+                throw new Error(`Feedback submission failed: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('[Background] Feedback request failed:', error);
+            throw error;
+        }
+    }
+    
+    // For other endpoints, get and validate JWT token for authenticated requests (auto-refresh if needed)
+    const jwtToken = await ensureValidJWTToken();
+    if (!jwtToken) {
+        throw new Error('No JWT token found. Please authenticate first.');
+    }
+    
+    console.log('[Background] Sending authenticated request to n8n:', { url, payload });
     
     try {
     const response = await safeRequest(url, {
@@ -688,7 +720,7 @@ async function handleOAuthFlow() {
         
         // Step 2: Build Google OAuth URL with n8n's PKCE parameters
         // Use client ID from manifest.json to ensure consistency
-        const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
+    const clientId = '1051004706176-ptln0d7v8t83qu0s5vf7v4q4dagfcn4q.apps.googleusercontent.com';
         const redirectUri = 'https://connector.saai.dev/webhook/oauth/callback';
         const scopes = [
             'https://www.googleapis.com/auth/gmail.readonly',
