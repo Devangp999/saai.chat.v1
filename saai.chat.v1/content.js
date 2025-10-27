@@ -6184,11 +6184,11 @@ function showFeedbackModal() {
             <small class="feedback-hint">JPG, PNG, GIF (Images will be compressed automatically)</small>
           </div>
           
-          <div class="feedback-form-group">
+          <div class="feedback-form-group" id="consent-group" style="display: none;">
             <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="feedback-consent" style="margin-top: 2px; cursor: pointer;" required />
+              <input type="checkbox" id="feedback-consent" style="margin-top: 2px; cursor: pointer;" />
               <span style="font-size: 13px; color: #555; line-height: 1.4;">
-                I consent to Sa.AI using my picture on their website and marketing materials
+                I consent to Sa.AI using my picture on their website and marketing materials *
               </span>
             </label>
           </div>
@@ -6294,8 +6294,37 @@ function addFeedbackModalListeners(modal, formType) {
   
   // Form submission for feedback
   if (feedbackForm && formType === 'feedback') {
+    const pictureInput = document.getElementById('feedback-picture');
+    const consentGroup = document.getElementById('consent-group');
+    const consentCheckbox = document.getElementById('feedback-consent');
+    
+    // Show/hide consent checkbox based on file selection
+    if (pictureInput && consentGroup && consentCheckbox) {
+      pictureInput.addEventListener('change', () => {
+        if (pictureInput.files && pictureInput.files[0]) {
+          // Image selected - show consent and make it required
+          consentGroup.style.display = 'block';
+          consentCheckbox.required = true;
+        } else {
+          // No image - hide consent and make it optional
+          consentGroup.style.display = 'none';
+          consentCheckbox.required = false;
+          consentCheckbox.checked = false;
+        }
+      });
+    }
+    
     feedbackForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      
+      // Additional validation: if image is selected, consent must be checked
+      if (pictureInput && pictureInput.files && pictureInput.files[0]) {
+        if (!consentCheckbox.checked) {
+          alert('Please check the consent checkbox to allow us to use your picture.');
+          return;
+        }
+      }
+      
       await submitFeedback(modal, feedbackForm, 'feedback');
     });
   }
