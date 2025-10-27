@@ -6425,7 +6425,12 @@ async function submitFeedback(modal, form, formType) {
       if (pictureInput.files && pictureInput.files[0]) {
         const file = pictureInput.files[0];
         
-        console.log('[Feedback] Compressing image:', file.name);
+        console.log('[Feedback] Processing image upload:', {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type
+        });
+        
         submitBtn.innerHTML = 'Compressing image...';
         
         try {
@@ -6437,11 +6442,19 @@ async function submitFeedback(modal, form, formType) {
           payload.pictureOriginalSize = file.size;
           payload.pictureCompressedSize = Math.round(compressedBase64.length * 0.75);
           
-          console.log('[Feedback] Image compressed successfully');
+          console.log('[Feedback] Image compressed successfully', {
+            pictureName: payload.pictureName,
+            originalSize: payload.pictureOriginalSize,
+            compressedSize: payload.pictureCompressedSize,
+            base64Length: compressedBase64.length,
+            base64Preview: compressedBase64.substring(0, 100) + '...'
+          });
         } catch (error) {
           console.error('[Feedback] Image compression failed:', error);
           throw new Error('Failed to process image. Please try a different image.');
         }
+      } else {
+        console.log('[Feedback] No image uploaded');
       }
       
     } else if (formType === 'issue') {
@@ -6500,7 +6513,12 @@ async function submitFeedback(modal, form, formType) {
     `;
     
     // Send to n8n webhook via background script
-    console.log('[Feedback] Sending to background script:', { endpoint: 'feedback', payload });
+    console.log('[Feedback] Sending to background script:', { 
+      endpoint: 'feedback', 
+      payload: payload,
+      hasPicture: !!payload.picture,
+      pictureSize: payload.picture ? payload.picture.length : 0
+    });
     
     const response = await chrome.runtime.sendMessage({
       action: 'sendToN8N',
