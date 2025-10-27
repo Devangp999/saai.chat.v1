@@ -462,7 +462,7 @@ async function handleN8NRequest(data) {
             url = 'https://connector.saai.dev/webhook/Task-Management';
             break;
         case 'feedback':
-            url = 'https://connector.saai.dev/webhook-test/Feedback_error';
+            url = 'https://connector.saai.dev/webhook/Feedback_error';
             break;
         default:
             throw new Error('Invalid endpoint');
