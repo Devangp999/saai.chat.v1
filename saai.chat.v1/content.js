@@ -6179,8 +6179,18 @@ function showFeedbackModal() {
           
           <div class="feedback-form-group">
             <label for="feedback-picture">Your Picture (Optional)</label>
+            <p class="feedback-hint" style="margin: 4px 0 8px 0; color: #666;">Please upload your picture</p>
             <input type="file" id="feedback-picture" class="feedback-file-input" accept="image/*" />
-            <small class="feedback-hint">JPG, PNG, GIF (Max 5MB)</small>
+            <small class="feedback-hint">JPG, PNG, GIF (Images will be compressed automatically)</small>
+          </div>
+          
+          <div class="feedback-form-group">
+            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="feedback-consent" style="margin-top: 2px; cursor: pointer;" required />
+              <span style="font-size: 13px; color: #555; line-height: 1.4;">
+                I consent to Sa.AI using my picture on their website and marketing materials
+              </span>
+            </label>
           </div>
           
           <div class="feedback-form-actions">
@@ -6299,6 +6309,54 @@ function addFeedbackModalListeners(modal, formType) {
   }
 }
 
+// Compress and convert image to Base64
+async function compressImageToBase64(file, maxWidth = 800, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        // Create canvas
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Calculate new dimensions
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to Base64 with compression
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+        
+        console.log('[Image Compression]', {
+          originalSize: (file.size / 1024).toFixed(2) + ' KB',
+          compressedSize: (compressedBase64.length * 0.75 / 1024).toFixed(2) + ' KB',
+          compressionRatio: ((1 - (compressedBase64.length * 0.75 / file.size)) * 100).toFixed(1) + '%'
+        });
+        
+        resolve(compressedBase64);
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = e.target.result;
+    };
+    
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 async function submitFeedback(modal, form, formType) {
   const submitBtn = form.querySelector('.feedback-submit-btn');
   const originalBtnText = submitBtn.innerHTML;
@@ -6322,6 +6380,7 @@ async function submitFeedback(modal, form, formType) {
       const designation = document.getElementById('feedback-designation').value;
       const email = document.getElementById('feedback-email').value;
       const pictureInput = document.getElementById('feedback-picture');
+      const consentCheckbox = document.getElementById('feedback-consent');
       
       payload = {
         ...payload,
@@ -6329,16 +6388,31 @@ async function submitFeedback(modal, form, formType) {
         improvement: improvement,
         name: name,
         designation: designation,
-        email: email
+        email: email,
+        pictureConsent: consentCheckbox.checked
       };
       
-      // Handle picture upload
+      // Handle picture upload with compression
       if (pictureInput.files && pictureInput.files[0]) {
         const file = pictureInput.files[0];
-        payload.pictureName = file.name;
-        payload.pictureSize = file.size;
-        // Note: Actual file upload would need additional handling
-        // For now, we'll just send metadata
+        
+        console.log('[Feedback] Compressing image:', file.name);
+        submitBtn.innerHTML = 'Compressing image...';
+        
+        try {
+          // Compress and convert to Base64
+          const compressedBase64 = await compressImageToBase64(file, 800, 0.8);
+          
+          payload.picture = compressedBase64;
+          payload.pictureName = file.name;
+          payload.pictureOriginalSize = file.size;
+          payload.pictureCompressedSize = Math.round(compressedBase64.length * 0.75);
+          
+          console.log('[Feedback] Image compressed successfully');
+        } catch (error) {
+          console.error('[Feedback] Image compression failed:', error);
+          throw new Error('Failed to process image. Please try a different image.');
+        }
       }
       
     } else if (formType === 'issue') {
@@ -6354,11 +6428,36 @@ async function submitFeedback(modal, form, formType) {
         email: email
       };
       
-      // Handle screenshot uploads
+      // Handle screenshot uploads with compression
       if (screenshotInput.files && screenshotInput.files.length > 0) {
-        const fileNames = Array.from(screenshotInput.files).map(f => f.name);
-        payload.screenshots = fileNames.join(', ');
-        payload.screenshotCount = screenshotInput.files.length;
+        console.log('[Issue] Compressing screenshots:', screenshotInput.files.length);
+        submitBtn.innerHTML = `Compressing ${screenshotInput.files.length} image(s)...`;
+        
+        try {
+          const compressedScreenshots = [];
+          
+          for (let i = 0; i < screenshotInput.files.length; i++) {
+            const file = screenshotInput.files[i];
+            console.log(`[Issue] Compressing screenshot ${i + 1}/${screenshotInput.files.length}:`, file.name);
+            
+            const compressedBase64 = await compressImageToBase64(file, 1200, 0.85);
+            
+            compressedScreenshots.push({
+              fileName: file.name,
+              data: compressedBase64,
+              originalSize: file.size,
+              compressedSize: Math.round(compressedBase64.length * 0.75)
+            });
+          }
+          
+          payload.screenshots = compressedScreenshots;
+          payload.screenshotCount = compressedScreenshots.length;
+          
+          console.log('[Issue] All screenshots compressed successfully');
+        } catch (error) {
+          console.error('[Issue] Screenshot compression failed:', error);
+          throw new Error('Failed to process screenshots. Please try different images.');
+        }
       }
     }
     
